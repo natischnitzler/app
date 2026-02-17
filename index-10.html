@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Temponovo">
+<title>Temponovo — Catálogos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Roboto', sans-serif;
+  background: #f5f5f5;
+  color: #333;
+}
+
+/* HEADER */
+.header {
+  background: #2c3e50;
+  padding: 24px 20px 20px;
+  text-align: center;
+}
+
+.logo { height: 45px; margin-bottom: 16px; }
+
+.header-stats {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-bottom: 12px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: rgba(255,255,255,0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+.sync-status {
+  font-size: 11px;
+  color: rgba(255,255,255,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4caf50;
+}
+
+/* SCREENS */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* HOME */
+.home-content { padding: 16px; padding-bottom: 30px; }
+
+.download-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.download-btn {
+  background: #2c3e50;
+  color: white;
+  border: none;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.download-btn:active { opacity: 0.8; }
+
+.download-btn:disabled {
+  background: #95a5a6;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.download-btn.has-selection {
+  background: #27ae60;
+}
+
+/* ACCORDION CATEGORY */
+.category-accordion {
+  background: white;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.category-header {
+  background: #2c3e50;
+  color: white;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+
+.category-header:active { opacity: 0.9; }
+
+.category-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.category-icon {
+  font-size: 24px;
+}
+
+.category-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.category-count {
+  font-size: 13px;
+  background: rgba(255,255,255,0.25);
+  padding: 4px 12px;
+  border-radius: 12px;
+  margin-right: 8px;
+}
+
+.chevron-icon {
+  font-size: 20px;
+  transition: transform 0.3s;
+}
+
+.category-accordion.open .chevron-icon {
+  transform: rotate(90deg);
+}
+
+.category-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.category-accordion.open .category-content {
+  max-height: 3000px;
+}
+
+/* CATALOG LIST */
+.catalog-list {
+  background: #fafafa;
+}
+
+.catalog-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e8e8e8;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.catalog-item:last-child {
+  border-bottom: none;
+}
+
+.catalog-checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #2c3e50;
+  flex-shrink: 0;
+}
+
+.catalog-info {
+  flex: 1;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.catalog-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 3px;
+}
+
+.catalog-meta {
+  font-size: 12px;
+  color: #999;
+}
+
+/* PDF VIEWER */
+.pdf-header {
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: #2c3e50;
+  font-size: 28px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-family: Arial;
+}
+
+.pdf-title {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+.share-btn {
+  background: #2c3e50;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.share-btn:active { opacity: 0.8; }
+
+/* PDF PAGE */
+.pdf-page {
+  background: white;
+  max-width: 100%;
+  margin: 0;
+}
+
+.pdf-page-header {
+  background: white;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.pdf-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contact-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #666;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pdf-page-logo {
+  height: 45px;
+}
+
+.pdf-page-title-bar {
+  background: #2c3e50;
+  padding: 16px 20px;
+  color: white;
+}
+
+.pdf-page-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.pdf-page-date {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-top: 4px;
+}
+
+.pdf-products {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+.pdf-product {
+  background: white;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.pdf-product:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
+}
+
+.pdf-product-img-wrap {
+  width: 100%;
+  aspect-ratio: 1;
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 16px;
+  position: relative;
+}
+
+.pdf-product-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pdf-product-img-wrap .emoji {
+  font-size: 64px;
+}
+
+.stock-corner {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.stock-corner.high { background: #4caf50; }
+.stock-corner.medium { background: #ff9800; }
+.stock-corner.low { background: #f44336; }
+
+.pdf-product-info {
+  padding: 14px 12px;
+  text-align: center;
+}
+
+.pdf-product-code {
+  font-size: 14px;
+  font-weight: 700;
+  color: #000;
+  margin-bottom: 8px;
+  letter-spacing: 0.3px;
+}
+
+.pdf-product-name {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.3;
+  margin-bottom: 8px;
+  min-height: 32px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pdf-product-price {
+  font-size: 15px;
+  color: #333;
+  font-weight: 600;
+}
+
+.pdf-product-price span {
+  font-size: 11px;
+  font-weight: 400;
+  color: #999;
+}
+
+.pdf-footer {
+  background: #f8f8f8;
+  padding: 16px 20px;
+  border-top: 1px solid #e0e0e0;
+  text-align: center;
+  font-size: 11px;
+  color: #666;
+  line-height: 1.6;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .pdf-products {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    padding: 16px;
+  }
+  
+  .contact-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .header-stats { gap: 28px; }
+  .stat-number { font-size: 24px; }
+}
+
+/* LOADING */
+.loading-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f0f0f0;
+  border-top-color: #2c3e50;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* TOAST */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #323232;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 9999;
+}
+
+.toast.show { opacity: 1; }
+
+/* ADMIN BUTTON */
+.admin-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  background: #2c3e50;
+  color: white;
+  border-radius: 50%;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(44,62,80,0.4);
+  z-index: 50;
+}
+
+.admin-btn:active { transform: scale(0.95); }
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<div id="home" class="screen active">
+  <div class="header">
+    <img src="https://www.temponovo.cl/asset/img/temponovo-logo-color.svg" alt="Temponovo" class="logo">
+    <div class="header-stats">
+      <div class="stat-item">
+        <div class="stat-number" id="total-catalogs">0</div>
+        <div class="stat-label">Catálogos</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number" id="total-products">0</div>
+        <div class="stat-label">Productos</div>
+      </div>
+    </div>
+    <div class="sync-status">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span id="sync-label">Cargando...</span>
+    </div>
+  </div>
+  
+  <div class="home-content">
+    <div class="download-buttons">
+      <button class="download-btn" onclick="downloadSelectedCatalogs()" id="download-selected-btn" disabled>
+        <span>📄</span>
+        <span id="selected-count-text">Seleccionar</span>
+      </button>
+      <button class="download-btn" onclick="downloadAllCatalogs()">
+        <span>📦</span>
+        <span>Todos</span>
+      </button>
+    </div>
+    
+    <div id="home-content-inner">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <div>Sincronizando productos...</div>
+      </div>
+    </div>
+  </div>
+  
+  <button class="admin-btn" onclick="showAdminPanel()" title="Configuración">⚙️</button>
+</div>
+
+<!-- PDF VIEWER -->
+<div id="pdf-viewer" class="screen">
+  <div class="pdf-header">
+    <button class="back-btn" onclick="goHome()">‹</button>
+    <div class="pdf-title" id="pdf-title-header"></div>
+    <button class="share-btn" onclick="shareCatalogPDF()">
+      <span>📄</span>
+      <span>PDF</span>
+    </button>
+  </div>
+  <div id="pdf-content" class="pdf-page"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// CONFIG
+const API_URL = 'https://temponovo-api.onrender.com/api/stock';
+const UPDATE_INTERVAL = 24 * 60 * 60 * 1000;
+const DB_NAME = 'temponovo_catalogs';
+
+// STATE
+let allProducts = [];
+let catalogs = {};
+let catalogsByCategory = {};
+let currentCatalog = null;
+let selectedCatalogs = new Set();
+
+// CATEGORY CONFIG
+const CATEGORIES = {
+  'Relojes': { icon: '⌚', keywords: ['reloj', 'relojes'] },
+  'Calculadoras': { icon: '🧮', keywords: ['calculadora'] },
+  'Encendedores': { icon: '🔥', keywords: ['zippo', 'encendedor'] },
+  'Accesorios': { icon: '🪢', keywords: ['correa', 'correas'] },
+  'Joyas': { icon: '💎', keywords: ['joya', 'estuche', 'plata'] },
+  'Otros': { icon: '📦', keywords: [] }
+};
+
+function getCategoryForCatalog(catName) {
+  const name = catName.toLowerCase();
+  for (const [category, config] of Object.entries(CATEGORIES)) {
+    if (config.keywords.some(k => name.includes(k))) {
+      return category;
+    }
+  }
+  return 'Otros';
+}
+
+// SELECTION
+function toggleCatalogSelection(catName, event) {
+  event.stopPropagation();
+  
+  if (selectedCatalogs.has(catName)) {
+    selectedCatalogs.delete(catName);
+  } else {
+    selectedCatalogs.add(catName);
+  }
+  
+  updateSelectionUI();
+}
+
+function updateSelectionUI() {
+  const count = selectedCatalogs.size;
+  const btn = document.getElementById('download-selected-btn');
+  const text = document.getElementById('selected-count-text');
+  
+  if (count === 0) {
+    btn.disabled = true;
+    btn.classList.remove('has-selection');
+    text.textContent = 'Seleccionar';
+  } else {
+    btn.disabled = false;
+    btn.classList.add('has-selection');
+    text.textContent = `Descargar (${count})`;
+  }
+}
+
+// INDEXEDDB
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('products')) {
+        db.createObjectStore('products', { keyPath: 'Default_code' });
+      }
+      if (!db.objectStoreNames.contains('meta')) {
+        db.createObjectStore('meta', { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveProducts(products) {
+  const db = await openDB();
+  const tx = db.transaction(['products', 'meta'], 'readwrite');
+  
+  const store = tx.objectStore('products');
+  await store.clear();
+  products.forEach(p => store.put(p));
+  
+  const metaStore = tx.objectStore('meta');
+  await metaStore.put({ key: 'last_sync', value: Date.now() });
+  await metaStore.put({ key: 'product_count', value: products.length });
+  
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function loadProducts() {
+  const db = await openDB();
+  const tx = db.transaction('products', 'readonly');
+  const req = tx.objectStore('products').getAll();
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function getLastSync() {
+  const db = await openDB();
+  const tx = db.transaction('meta', 'readonly');
+  const req = tx.objectStore('meta').get('last_sync');
+  return new Promise((resolve) => {
+    req.onsuccess = () => resolve(req.result?.value || 0);
+    req.onerror = () => resolve(0);
+  });
+}
+
+// API
+async function fetchProducts() {
+  setSyncStatus('Sincronizando...');
+  try {
+    const res = await fetch(API_URL);
+    
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    
+    if (!Array.isArray(data)) throw new Error('Invalid response');
+    
+    const inStock = data.filter(p => (p.Stock || 0) > 0);
+    
+    await saveProducts(inStock);
+    allProducts = inStock;
+    
+    setSyncStatus('Actualizado hoy');
+    showToast(`✓ ${inStock.length} productos sincronizados`);
+    return true;
+  } catch (err) {
+    console.error('Sync error:', err);
+    setSyncStatus('Offline');
+    return false;
+  }
+}
+
+function setSyncStatus(label) {
+  document.getElementById('sync-label').textContent = label;
+}
+
+// BUILD CATALOGS
+function buildCatalogs() {
+  catalogs = {};
+  catalogsByCategory = {};
+  
+  allProducts.forEach(p => {
+    const parent = p.Parent_category || 'Otros';
+    const category = p.Category || '';
+    
+    let catName;
+    if (parent.toLowerCase().includes('reloj') || parent.toLowerCase().includes('calculadora')) {
+      catName = category ? `${parent} ${category}` : parent;
+    } else {
+      catName = parent;
+    }
+    
+    if (!catalogs[catName]) {
+      catalogs[catName] = { name: catName, products: [] };
+    }
+    catalogs[catName].products.push(p);
+  });
+  
+  for (const cat of Object.values(catalogs)) {
+    const categoryName = getCategoryForCatalog(cat.name);
+    if (!catalogsByCategory[categoryName]) {
+      catalogsByCategory[categoryName] = [];
+    }
+    catalogsByCategory[categoryName].push(cat);
+  }
+  
+  renderCatalogList();
+  updateStats();
+}
+
+function updateStats() {
+  document.getElementById('total-catalogs').textContent = Object.keys(catalogs).length;
+  document.getElementById('total-products').textContent = allProducts.length;
+}
+
+function toggleCategory(categoryName) {
+  const el = document.getElementById(`cat-${categoryName}`);
+  if (el) {
+    el.classList.toggle('open');
+  }
+}
+
+function renderCatalogList() {
+  const content = document.getElementById('home-content-inner');
+  
+  if (Object.keys(catalogsByCategory).length === 0) {
+    content.innerHTML = '<div class="loading-state"><div>Sin catálogos disponibles</div></div>';
+    return;
+  }
+  
+  let html = '';
+  
+  for (const [categoryName, cats] of Object.entries(catalogsByCategory)) {
+    const config = CATEGORIES[categoryName];
+    const catId = `cat-${categoryName}`;
+    
+    html += `
+      <div class="category-accordion" id="${catId}">
+        <div class="category-header" onclick="toggleCategory('${categoryName}')">
+          <div class="category-left">
+            <div class="category-icon">${config.icon}</div>
+            <div class="category-title">${categoryName}</div>
+          </div>
+          <div class="category-count">${cats.length}</div>
+          <div class="chevron-icon">›</div>
+        </div>
+        <div class="category-content">
+          <div class="catalog-list">`;
+    
+    cats.forEach(cat => {
+      const isSelected = selectedCatalogs.has(cat.name);
+      html += `
+        <div class="catalog-item">
+          <input type="checkbox" class="catalog-checkbox" ${isSelected ? 'checked' : ''} 
+                 onchange="toggleCatalogSelection('${cat.name.replace(/'/g, "\\'")}', event)">
+          <div class="catalog-info" onclick="openCatalog('${encodeURIComponent(cat.name)}')">
+            <div class="catalog-name">${cat.name}</div>
+            <div class="catalog-meta">${cat.products.length} productos</div>
+          </div>
+        </div>`;
+    });
+    
+    html += `
+          </div>
+        </div>
+      </div>`;
+  }
+  
+  content.innerHTML = html;
+}
+
+// OPEN CATALOG
+function openCatalog(encodedName) {
+  const name = decodeURIComponent(encodedName);
+  currentCatalog = catalogs[name];
+  if (!currentCatalog) return;
+  
+  document.getElementById('pdf-title-header').textContent = name;
+  
+  const today = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const photoBase = localStorage.getItem('photo_base_url') || '';
+  
+  let html = `
+    <div class="pdf-page-header">
+      <div class="pdf-header-left">
+        <div class="contact-info">
+          <div class="contact-item">📞 9 6292 9654</div>
+          <div class="contact-item">✉️ ventas@temponovo.cl</div>
+        </div>
+        <div class="contact-info">
+          <div class="contact-item">📞 2 2229 3138</div>
+          <div class="contact-item">📍 Las Carmelitas 51, Las Condes</div>
+        </div>
+      </div>
+      <img src="https://www.temponovo.cl/asset/img/temponovo-logo-color.svg" class="pdf-page-logo">
+    </div>
+    
+    <div class="pdf-page-title-bar">
+      <div class="pdf-page-title">${name}</div>
+      <div class="pdf-page-date">${today}</div>
+    </div>
+    
+    <div class="pdf-products">`;
+  
+  currentCatalog.products.forEach(p => {
+    const price = formatPrice(p.Price || 0);
+    const stock = p.Stock || 0;
+    let stockClass = 'high';
+    if (stock < 10) stockClass = 'low';
+    else if (stock < 15) stockClass = 'medium';
+    
+    const imgTag = photoBase 
+      ? `<img src="${photoBase}/${p.Default_code}.jpg" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="${p.Name}">`
+      : '';
+    
+    html += `
+      <div class="pdf-product">
+        <div class="pdf-product-img-wrap">
+          ${imgTag}
+          <div class="emoji" style="${imgTag ? 'display:none' : 'display:flex'}">📦</div>
+          <div class="stock-corner ${stockClass}">${stock}</div>
+        </div>
+        <div class="pdf-product-info">
+          <div class="pdf-product-code">${p.Default_code || ''}</div>
+          <div class="pdf-product-name">${p.Name || 'Sin nombre'}</div>
+          <div class="pdf-product-price">${price} <span>+ IVA</span></div>
+        </div>
+      </div>`;
+  });
+  
+  html += `
+    </div>
+    <div class="pdf-footer">
+      📞 9 6292 9654 · 2 2229 3138 | ✉️ ventas@temponovo.cl | 📍 Las Carmelitas 51, Las Condes<br>
+      Actualizado: ${today}
+    </div>`;
+  
+  document.getElementById('pdf-content').innerHTML = html;
+  showScreen('pdf-viewer');
+}
+
+function formatPrice(p) {
+  if (!p) return '$0';
+  return '$' + Math.round(p).toLocaleString('es-CL');
+}
+
+// GENERATE PDF
+async function generatePDF(catalogName, catalog) {
+  const { jsPDF } = window.jspdf;
+  
+  const tempDiv = document.createElement('div');
+  tempDiv.style.position = 'absolute';
+  tempDiv.style.left = '-9999px';
+  tempDiv.className = 'pdf-page';
+  
+  const today = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const photoBase = localStorage.getItem('photo_base_url') || '';
+  
+  let html = `
+    <div class="pdf-page-header">
+      <div class="pdf-header-left">
+        <div class="contact-info">
+          <div class="contact-item">📞 9 6292 9654</div>
+          <div class="contact-item">✉️ ventas@temponovo.cl</div>
+        </div>
+      </div>
+      <img src="https://www.temponovo.cl/asset/img/temponovo-logo-color.svg" class="pdf-page-logo">
+    </div>
+    <div class="pdf-page-title-bar">
+      <div class="pdf-page-title">${catalogName}</div>
+      <div class="pdf-page-date">${today}</div>
+    </div>
+    <div class="pdf-products">`;
+  
+  catalog.products.forEach(p => {
+    const price = formatPrice(p.Price || 0);
+    const stock = p.Stock || 0;
+    let stockClass = stock < 10 ? 'low' : stock < 15 ? 'medium' : 'high';
+    
+    html += `
+      <div class="pdf-product">
+        <div class="pdf-product-img-wrap">
+          <div class="emoji">📦</div>
+          <div class="stock-corner ${stockClass}">${stock}</div>
+        </div>
+        <div class="pdf-product-info">
+          <div class="pdf-product-code">${p.Default_code || ''}</div>
+          <div class="pdf-product-name">${p.Name || 'Sin nombre'}</div>
+          <div class="pdf-product-price">${price} <span>+ IVA</span></div>
+        </div>
+      </div>`;
+  });
+  
+  html += `</div>`;
+  tempDiv.innerHTML = html;
+  document.body.appendChild(tempDiv);
+  
+  const canvas = await html2canvas(tempDiv, { scale: 1.5, logging: false });
+  
+  const imgData = canvas.toDataURL('image/jpeg', 0.9);
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const imgWidth = 210;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+  
+  const filename = `${catalogName.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+  pdf.save(filename);
+  
+  document.body.removeChild(tempDiv);
+}
+
+// SHARE PDF
+async function shareCatalogPDF() {
+  if (!currentCatalog) return;
+  
+  showToast('Generando PDF...');
+  
+  try {
+    await generatePDF(currentCatalog.name, currentCatalog);
+    showToast('✓ PDF descargado');
+  } catch (err) {
+    console.error('PDF error:', err);
+    showToast('Error al generar PDF');
+  }
+}
+
+// DOWNLOAD SELECTED
+async function downloadSelectedCatalogs() {
+  if (selectedCatalogs.size === 0) {
+    showToast('Selecciona al menos un catálogo');
+    return;
+  }
+  
+  showToast(`Generando ${selectedCatalogs.size} PDFs...`);
+  
+  let completed = 0;
+  
+  for (const catName of selectedCatalogs) {
+    const catalog = catalogs[catName];
+    if (!catalog) continue;
+    
+    try {
+      await generatePDF(catName, catalog);
+      completed++;
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (err) {
+      console.error(`Error generando ${catName}:`, err);
+    }
+  }
+  
+  showToast(`✓ ${completed} PDFs descargados`);
+  selectedCatalogs.clear();
+  renderCatalogList();
+  updateSelectionUI();
+}
+
+// DOWNLOAD ALL
+async function downloadAllCatalogs() {
+  if (Object.keys(catalogs).length === 0) {
+    showToast('No hay catálogos disponibles');
+    return;
+  }
+  
+  showToast(`Generando ${Object.keys(catalogs).length} PDFs...`);
+  
+  let completed = 0;
+  
+  for (const [catName, catalog] of Object.entries(catalogs)) {
+    try {
+      await generatePDF(catName, catalog);
+      completed++;
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (err) {
+      console.error(`Error generando ${catName}:`, err);
+    }
+  }
+  
+  showToast(`✓ ${completed} PDFs descargados`);
+}
+
+// ADMIN
+function showAdminPanel() {
+  const url = prompt('URL base de fotos en Google Drive:', localStorage.getItem('photo_base_url') || '');
+  if (url !== null) {
+    localStorage.setItem('photo_base_url', url.trim());
+    showToast('✓ URL de fotos guardada');
+    if (currentCatalog) {
+      openCatalog(encodeURIComponent(currentCatalog.name));
+    }
+  }
+}
+
+// NAVIGATION
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function goHome() {
+  showScreen('home');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// INIT
+async function init() {
+  allProducts = await loadProducts();
+  if (allProducts.length > 0) {
+    buildCatalogs();
+    setSyncStatus('Offline');
+  }
+  
+  const lastSync = await getLastSync();
+  const needsUpdate = Date.now() - lastSync > UPDATE_INTERVAL;
+  
+  if (navigator.onLine && (needsUpdate || allProducts.length === 0)) {
+    const success = await fetchProducts();
+    if (success) buildCatalogs();
+  }
+  
+  window.addEventListener('online', async () => {
+    showToast('Conexión restaurada');
+    await fetchProducts();
+    buildCatalogs();
+  });
+}
+
+init();
+</script>
+</body>
+</html>
