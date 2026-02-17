@@ -1,6 +1,0 @@
-services:
-  - type: web
-    name: temponovo
-    env: static
-    buildCommand: ""
-    staticPublishPath: .
