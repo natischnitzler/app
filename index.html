@@ -33,7 +33,6 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
 .category-header{background:#2c3e50;color:white;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
 .category-header:active{opacity:0.9}
 .category-left{display:flex;align-items:center;gap:12px;flex:1}
-.category-icon{font-size:24px}
 .category-title{font-size:16px;font-weight:600}
 .category-count{font-size:13px;background:rgba(255,255,255,0.25);padding:4px 12px;border-radius:12px;margin-right:8px}
 .chevron-icon{font-size:20px;transition:transform 0.3s}
@@ -207,23 +206,6 @@ let activeFilters={familias:[],subfamilias:[],generos:[],colores:[],tamanos:[],r
 let filteredProducts=[];
 let selectedProducts=new Set();
 
-const CATEGORIES={
-  'Relojes':{icon:'⌚',keywords:['reloj','relojes']},
-  'Calculadoras':{icon:'🧮',keywords:['calculadora']},
-  'Encendedores':{icon:'🔥',keywords:['zippo','encendedor']},
-  'Accesorios':{icon:'🪢',keywords:['correa','correas']},
-  'Joyas':{icon:'💎',keywords:['joya','estuche','plata']},
-  'Otros':{icon:'📦',keywords:[]}
-};
-
-function getCategoryForCatalog(n){
-  const name=n.toLowerCase();
-  for(const[category,config]of Object.entries(CATEGORIES)){
-    if(config.keywords.some(k=>name.includes(k)))return category;
-  }
-  return'Otros';
-}
-
 function toggleCatalogSelection(n,e){
   e.stopPropagation();
   selectedCatalogs.has(n)?selectedCatalogs.delete(n):selectedCatalogs.add(n);
@@ -363,23 +345,27 @@ function setSyncStatus(l){
 function buildCatalogs(){
   catalogs={};
   catalogsByCategory={};
+  
+  // Agrupar por Category (catálogos individuales)
   allProducts.forEach(p=>{
-    const parent=p.Parent_category||'Otros';
-    const category=p.Category||'';
-    let catName;
-    if(parent.toLowerCase().includes('reloj')||parent.toLowerCase().includes('calculadora')){
-      catName=category?`${parent} ${category}`:parent;
-    }else{
-      catName=parent;
+    const category=p.Category||'Sin categoría';
+    if(!catalogs[category]){
+      catalogs[category]={
+        name:category,
+        products:[],
+        parent:p.Parent_category||'Otros'
+      };
     }
-    if(!catalogs[catName])catalogs[catName]={name:catName,products:[]};
-    catalogs[catName].products.push(p);
+    catalogs[category].products.push(p);
   });
+  
+  // Agrupar catálogos por Parent_category (acordeones)
   for(const cat of Object.values(catalogs)){
-    const categoryName=getCategoryForCatalog(cat.name);
-    if(!catalogsByCategory[categoryName])catalogsByCategory[categoryName]=[];
-    catalogsByCategory[categoryName].push(cat);
+    const parent=cat.parent;
+    if(!catalogsByCategory[parent])catalogsByCategory[parent]=[];
+    catalogsByCategory[parent].push(cat);
   }
+  
   catalogList=Object.keys(catalogs).sort();
   renderCatalogList();
 }
@@ -419,15 +405,13 @@ function renderCatalogList(){
       </div>
     </div></div></div>`;
   
-  // Resto de categorías
-  for(const[categoryName,cats]of Object.entries(catalogsByCategory)){
-    const config=CATEGORIES[categoryName];
-    const catId=`cat-${categoryName}`;
+  // Resto de categorías (Parent_category)
+  for(const[parentName,cats]of Object.entries(catalogsByCategory)){
+    const catId=`cat-${parentName.replace(/\s+/g,'-')}`;
     html+=`<div class="category-accordion" id="${catId}">
-      <div class="category-header" onclick="toggleCategory('${categoryName}')">
+      <div class="category-header" onclick="toggleCategory('${parentName.replace(/'/g,"\\'")}')">
         <div class="category-left">
-          <div class="category-icon">${config.icon}</div>
-          <div class="category-title">${categoryName}</div>
+          <div class="category-title">${parentName}</div>
         </div>
         <div class="category-count">${cats.length}</div>
         <div class="chevron-icon">›</div>
