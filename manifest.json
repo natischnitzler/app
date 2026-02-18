@@ -1,0 +1,17 @@
+{
+  "name": "Temponovo Catálogos",
+  "short_name": "Temponovo",
+  "description": "Catálogos de productos con stock actualizado",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ff5252",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://www.temponovo.cl/asset/img/temponovo-logo-color.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
