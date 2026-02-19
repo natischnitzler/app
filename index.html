@@ -797,7 +797,7 @@ function renderCatalogProducts(products){
     let stockClass='high';
     if(stock<10)stockClass='low';
     else if(stock<15)stockClass='medium';
-    const imgTag=p.image_url?`<img src="${p.image_url}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="${p.Name}" loading="lazy">`:'';
+    const imgTag=p.image_base64?`<img src="data:image/png;base64,${p.image_base64}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="${p.Name}" loading="lazy">`:'';
     const caract=caracteristicas[p.Default_code];
     let featuresHtml='';
     if(caract){
