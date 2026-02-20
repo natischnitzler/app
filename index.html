@@ -918,42 +918,126 @@ function cleanProductCode(code){
 
 async function generatePDF(catName,products){
   const{jsPDF}=window.jspdf;
-  const tempDiv=document.createElement('div');
-  tempDiv.style.position='absolute';
-  tempDiv.style.left='-9999px';
-  tempDiv.className='pdf-page';
-  const today=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
-  let html=`<div class="pdf-products">`;
-  products.forEach(p=>{
-    const price=formatPrice(p.Price||0);
-    const stock=p.Stock||0;
-    const stockDisplay=stock>100?'100+':stock;
-    let stockClass=stock<10?'low':stock<15?'medium':'high';
-    html+=`
-      <div class="pdf-product">
-        <div class="pdf-product-img-wrap">
-          <div class="emoji">📦</div>
-          <div class="stock-corner ${stockClass}">${stockDisplay}</div>
-        </div>
-        <div class="pdf-product-info">
-          <div class="pdf-product-code">${cleanProductCode(p.Default_code)||''}</div>
-          <div class="pdf-product-name">${cleanProductName(p.Name,p.Parent_category,p.Default_code)}</div>
-          <div class="pdf-product-price">${price} <span>+ IVA</span></div>
-        </div>
-      </div>`;
-  });
-  html+=`</div>`;
-  tempDiv.innerHTML=html;
-  document.body.appendChild(tempDiv);
-  const canvas=await html2canvas(tempDiv,{scale:1.5,logging:false});
-  const imgData=canvas.toDataURL('image/jpeg',0.9);
+  
+  showToast('Generando PDF...');
+  
   const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const imgWidth=210;
-  const imgHeight=(canvas.height*imgWidth)/canvas.width;
-  pdf.addImage(imgData,'JPEG',0,0,imgWidth,imgHeight);
+  const pageWidth=210;
+  const pageHeight=297;
+  const margin=15;
+  const usableWidth=pageWidth-(margin*2);
+  
+  // 4 columnas
+  const cols=4;
+  const colWidth=usableWidth/cols;
+  const productHeight=70;
+  const productsPerPage=12; // 3 filas × 4 columnas
+  
+  let currentY=margin;
+  let productCount=0;
+  let pageCount=1;
+  
+  // Encabezado primera página
+  pdf.setFontSize(18);
+  pdf.setFont('helvetica','bold');
+  pdf.text(catName,pageWidth/2,currentY,{align:'center'});
+  
+  currentY+=8;
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica','normal');
+  const today=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
+  pdf.text(today,pageWidth/2,currentY,{align:'center'});
+  
+  currentY+=12;
+  
+  products.forEach((p,idx)=>{
+    // Nueva página si es necesario
+    if(productCount>0&&productCount%productsPerPage===0){
+      pdf.addPage();
+      currentY=margin;
+      pageCount++;
+    }
+    
+    const posInRow=productCount%cols;
+    const row=Math.floor((productCount%productsPerPage)/cols);
+    
+    const x=margin+(posInRow*colWidth);
+    const y=currentY+(row*productHeight);
+    
+    // Rectángulo del producto
+    pdf.setDrawColor(224,224,224);
+    pdf.setLineWidth(0.3);
+    pdf.rect(x,y,colWidth-2,productHeight-2);
+    
+    // Código
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica','bold');
+    const code=cleanProductCode(p.Default_code)||'';
+    pdf.text(code,x+(colWidth/2)-1,y+8,{align:'center',maxWidth:colWidth-6});
+    
+    // Nombre (limpio)
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica','normal');
+    const name=cleanProductName(p.Name,p.Parent_category,p.Default_code)||'';
+    const nameLines=pdf.splitTextToSize(name,colWidth-8);
+    pdf.text(nameLines.slice(0,3),x+(colWidth/2)-1,y+14,{align:'center'});
+    
+    // Precio
+    pdf.setFontSize(13);
+    pdf.setFont('helvetica','bold');
+    const price=formatPrice(p.Price||0);
+    pdf.text(price,x+(colWidth/2)-1,y+35,{align:'center'});
+    
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica','normal');
+    pdf.text('+ IVA',x+(colWidth/2)-1,y+40,{align:'center'});
+    
+    // Stock (esquina)
+    const stock=p.Stock||0;
+    const stockDisplay=stock>100?'100+':stock.toString();
+    const stockColor=stock<10?[244,67,54]:stock<15?[255,152,0]:[76,175,80];
+    
+    pdf.setFillColor(...stockColor);
+    pdf.roundedRect(x+colWidth-16,y+2,10,6,1,1,'F');
+    pdf.setTextColor(255,255,255);
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica','bold');
+    pdf.text(stockDisplay,x+colWidth-11,y+5.5,{align:'center'});
+    pdf.setTextColor(0,0,0);
+    
+    // Características (si existen)
+    const caract=caracteristicas[p.Default_code];
+    if(caract){
+      const features=[];
+      if(caract.genero)features.push(caract.genero);
+      if(caract.color)features.push(caract.color);
+      if(caract.tamano)features.push(caract.tamano);
+      if(caract.resistencia)features.push(caract.resistencia);
+      
+      if(features.length>0){
+        pdf.setFontSize(6);
+        pdf.setFont('helvetica','normal');
+        pdf.setTextColor(119,119,119);
+        const featText=features.join(' • ');
+        const featLines=pdf.splitTextToSize(featText,colWidth-6);
+        pdf.text(featLines.slice(0,2),x+(colWidth/2)-1,y+47,{align:'center'});
+        pdf.setTextColor(0,0,0);
+      }
+    }
+    
+    productCount++;
+  });
+  
+  // Pie de página en última página
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica','italic');
+  pdf.setTextColor(102,102,102);
+  pdf.text('Precios + IVA - Stock disponible puede variar',pageWidth/2,pageHeight-10,{align:'center'});
+  
   const filename=`${catName.replace(/[^a-z0-9]/gi,'_')}.pdf`;
   pdf.save(filename);
-  document.body.removeChild(tempDiv);
+  
+  showToast('✓ PDF descargado');
 }
 
 async function shareCatalogPDF(){
