@@ -1096,6 +1096,8 @@ async function generatePDF(catName, products) {
   pdf.save(filename);
   
   showToast('✓ PDF descargado');
+}
+
 async function shareCatalogPDF(){
   if(!currentCatalog)return;
   showToast('Generando PDF...');
