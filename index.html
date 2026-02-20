@@ -941,21 +941,162 @@ function cleanProductCode(code){
   return clean;
 }
 
-async function generatePDF(catName,products){
-  const{jsPDF}=window.jspdf;
+async function generatePDF(catName, products) {
+  const {jsPDF} = window.jspdf;
   
   showToast('Generando PDF...');
   
-  const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const pageWidth=210;
-  const pageHeight=297;
-  const margin=15;
-  const usableWidth=pageWidth-(margin*2);
+  const pdf = new jsPDF({orientation: 'portrait', unit: 'mm', format: 'a4'});
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const margin = 15;
+  const usableWidth = pageWidth - (margin * 2);
+  const usableHeight = pageHeight - (margin * 2);
   
-  // 4 columnas
-  const cols=4;
-  const colWidth=usableWidth/cols;
-  const productHeight=70;
+  // Cargar logo
+  let logoImg = null;
+  try {
+    const logoUrl = 'https://www.temponovo.cl/asset/img/temponovo-logo-color.svg';
+    logoImg = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null); // Si falla, continuar sin logo
+      img.src = logoUrl;
+      setTimeout(() => resolve(null), 3000); // Timeout 3s
+    });
+  } catch (e) {
+    console.log('Logo no disponible, continuando...');
+  }
+  
+  // Grid: 4 columnas × 3 filas
+  const cols = 4;
+  const rows = 3;
+  const productsPerPage = cols * rows;
+  
+  const cellWidth = (usableWidth - (8 * (cols - 1) / cols)) / cols;
+  const cellHeight = (usableHeight - 35 - 15 - (12 * (rows - 1) / rows)) / rows;
+  const gapX = 2;
+  const gapY = 3;
+  
+  function drawHeader(pdf) {
+    // Header izquierdo - contacto
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(51, 51, 51);
+    
+    pdf.text('📱 9 6292 9654  ·  ✉️ ventas@temponovo.cl', margin, margin + 5);
+    pdf.text('📞 2 229 3138  ·  📍 Las Carmelitas 51, Las Condes', margin, margin + 10);
+    
+    // Logo derecho
+    if (logoImg) {
+      const logoHeight = 10;
+      const logoWidth = (logoImg.width / logoImg.height) * logoHeight;
+      pdf.addImage(logoImg, 'PNG', pageWidth - margin - logoWidth, margin + 2, logoWidth, logoHeight);
+    } else {
+      // Fallback a texto si logo no carga
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0);
+      const logoText = 'TEMPONOVO';
+      const logoWidth = pdf.getTextWidth(logoText);
+      pdf.text(logoText, pageWidth - margin - logoWidth, margin + 8);
+    }
+    
+    // Separador
+    pdf.setDrawColor(204, 204, 204);
+    pdf.setLineWidth(0.15);
+    pdf.line(margin, margin + 15, pageWidth - margin, margin + 15);
+  }
+  
+  function drawFooter(pdf) {
+    pdf.setDrawColor(238, 238, 238);
+    pdf.setLineWidth(0.1);
+    pdf.line(margin, pageHeight - margin - 8, pageWidth - margin, pageHeight - margin - 8);
+    
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(170, 170, 170);
+    const today = new Date().toLocaleDateString('es-CL', {day: '2-digit', month: '2-digit', year: 'numeric'});
+    pdf.text(today, pageWidth / 2, pageHeight - margin - 3, {align: 'center'});
+  }
+  
+  products.forEach((p, idx) => {
+    if (idx % productsPerPage === 0) {
+      if (idx > 0) {
+        drawFooter(pdf);
+        pdf.addPage();
+      }
+      drawHeader(pdf);
+    }
+    
+    const posInPage = idx % productsPerPage;
+    const col = posInPage % cols;
+    const row = Math.floor(posInPage / cols);
+    
+    const x = margin + (col * (cellWidth + gapX));
+    const y = margin + 20 + (row * (cellHeight + gapY));
+    
+    // IMAGEN (70% del alto)
+    const imgHeight = cellHeight * 0.70;
+    
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(x, y, cellWidth, imgHeight, 'F');
+    
+    // Placeholder (por ahora)
+    pdf.setFontSize(20);
+    pdf.text('📦', x + cellWidth/2, y + imgHeight/2, {align: 'center'});
+    
+    // NOMBRE (Bold, 8.5pt, #111111)
+    pdf.setFontSize(8.5);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(17, 17, 17);
+    const name = cleanProductName(p.Name, p.Parent_category, p.Default_code) || '';
+    const nameLines = pdf.splitTextToSize(name, cellWidth - 2);
+    pdf.text(nameLines.slice(0, 2), x + cellWidth/2, y + imgHeight + 4, {align: 'center'});
+    
+    // PRECIO (Bold, 8pt, #111111)
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'bold');
+    const price = formatPrice(p.Price || 0) + ' +IVA';
+    pdf.text(price, x + cellWidth/2, y + imgHeight + 10, {align: 'center'});
+    
+    // SPECS (Regular, 6.5pt, #555555)
+    const caract = caracteristicas[p.Default_code];
+    if (caract) {
+      pdf.setFontSize(6.5);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(85, 85, 85);
+      
+      const specs = [];
+      if (caract.tamano_esfera) specs.push(caract.tamano_esfera + 'mm');
+      if (caract.color) specs.push(caract.color);
+      if (caract.resistencia_agua) specs.push(caract.resistencia_agua);
+      
+      if (specs.length > 0) {
+        const specText = specs.join(' · ');
+        const specLines = pdf.splitTextToSize(specText, cellWidth - 2);
+        pdf.text(specLines.slice(0, 1), x + cellWidth/2, y + imgHeight + 15, {align: 'center'});
+      }
+    }
+    
+    // CATEGORÍA (Italic, 6pt, #888888)
+    pdf.setFontSize(6);
+    pdf.setFont('helvetica', 'italic');
+    pdf.setTextColor(136, 136, 136);
+    const category = p.Category || p.Parent_category || '';
+    if (category) {
+      pdf.text(category, x + cellWidth/2, y + imgHeight + 19, {align: 'center', maxWidth: cellWidth - 2});
+    }
+  });
+  
+  drawFooter(pdf);
+  
+  const filename = `${catName.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+  pdf.save(filename);
+  
+  showToast('✓ PDF descargado');
+}Height=70;
   const productsPerPage=12; // 3 filas × 4 columnas
   
   let currentY=margin;
