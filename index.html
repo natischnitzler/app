@@ -374,7 +374,8 @@ function buildCatalogs(){
   
   // Agrupar por Category (catálogos individuales)
   allProducts.forEach(p=>{
-    const category=p.Category||'Sin categoría';
+    // Si no tiene Category (subcategoría), usar Parent_category directamente
+    const category=p.Category || p.Parent_category || 'Sin categoría';
     if(!catalogs[category]){
       catalogs[category]={
         name:category,
