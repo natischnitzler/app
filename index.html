@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Temponovo">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="https://www.temponovo.cl/asset/img/temponovo-logo-color.svg">
+<title>Temponovo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
+
+.header{background:#2c3e50;padding:16px 20px;display:flex;align-items:center;justify-content:flex-end;position:relative}
+.logo{height:35px}
+.sync-status{display:flex;align-items:center;gap:8px}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#4caf50}
+.sync-label{font-size:11px;color:rgba(255,255,255,0.8)}
+.last-update{position:absolute;top:16px;left:20px;font-size:10px;color:rgba(255,255,255,0.6)}
+
+.screen{display:none}
+.screen.active{display:block}
+
+.home-content{padding:16px;padding-bottom:80px}
+.update-now-btn,.download-btn{background:#2c3e50;color:white;border:none;padding:14px 16px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s}
+.update-now-btn:active,.download-btn:active{opacity:0.8}
+.download-btn:disabled{background:#95a5a6;cursor:not-allowed;opacity:0.6}
+.download-btn.has-selection{background:#27ae60}
+.bottom-buttons{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #e0e0e0;padding:12px 16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;z-index:50}
+
+.category-accordion{background:white;border-radius:12px;margin-bottom:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+.category-header{background:#2c3e50;color:white;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
+.category-header:active{opacity:0.9}
+.category-left{display:flex;align-items:center;gap:12px;flex:1}
+.category-title{font-size:16px;font-weight:600}
+.category-count{font-size:13px;background:rgba(255,255,255,0.25);padding:4px 12px;border-radius:12px;margin-right:8px}
+.chevron-icon{font-size:20px;transition:transform 0.3s}
+.category-accordion.open .chevron-icon{transform:rotate(90deg)}
+.category-content{max-height:0;overflow:hidden;transition:max-height 0.3s ease}
+.category-accordion.open .category-content{max-height:3000px}
+
+.catalog-list{background:#fafafa}
+.catalog-item{padding:12px 16px;border-bottom:1px solid #e8e8e8;display:flex;align-items:center;gap:12px}
+.catalog-item:last-child{border-bottom:none}
+.catalog-checkbox{width:20px;height:20px;cursor:pointer;accent-color:#2c3e50;flex-shrink:0}
+.catalog-info{flex:1;cursor:pointer;min-width:0}
+.catalog-name{font-size:15px;font-weight:500;color:#333;margin-bottom:3px}
+.catalog-meta{font-size:12px;color:#999}
+
+.pdf-header{background:white;border-bottom:1px solid #e0e0e0;padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+.back-btn{background:none;border:none;color:#2c3e50;font-size:28px;cursor:pointer;padding:0;line-height:1;font-family:Arial}
+.pdf-title{flex:1;font-size:16px;font-weight:500;color:#333}
+#sort-buttons{display:flex;gap:8px;margin-top:8px}
+.sort-btn{background:#f0f0f0;color:#666;border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;transition:all 0.2s}
+.sort-btn:hover{background:#e0e0e0}
+.sort-btn.active{background:#2c3e50;color:white}
+.filter-toggle-btn{background:#2c3e50;color:white;border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;margin-right:8px}
+.filter-toggle-btn:active{opacity:0.8}
+.filter-count{background:#27ae60;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+.share-btn{background:#2c3e50;color:white;border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px}
+.share-btn:active{opacity:0.8}
+
+.filters-sidebar{position:fixed;top:0;right:-300px;width:280px;height:100vh;background:white;box-shadow:-2px 0 10px rgba(0,0,0,0.1);z-index:200;transition:right 0.3s;overflow-y:auto}
+.filters-sidebar.open{right:0}
+.filters-header{background:#2c3e50;color:white;padding:16px;display:flex;align-items:center;justify-content:space-between}
+.filters-title{font-size:16px;font-weight:600}
+.close-filters{background:none;border:none;color:white;font-size:24px;cursor:pointer;padding:0}
+.filter-section{padding:16px;border-bottom:1px solid #e8e8e8}
+.filter-section-title{font-size:14px;font-weight:600;color:#333;margin-bottom:12px}
+.filter-option{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.filter-option input{width:18px;height:18px;cursor:pointer;accent-color:#2c3e50}
+.filter-option label{font-size:13px;color:#666;cursor:pointer;flex:1}
+.filter-option-count{font-size:11px;color:#999}
+.clear-filters-btn{background:#e74c3c;color:white;border:none;padding:12px;width:calc(100% - 32px);margin:16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.clear-filters-btn:active{opacity:0.8}
+.filters-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:199;display:none}
+.filters-overlay.show{display:block}
+
+.pdf-page{background:white;max-width:100%;margin:0;padding-top:0}
+.pdf-page-title{font-size:20px;font-weight:700}
+.pdf-page-date{font-size:12px;opacity:0.9;margin-top:4px}
+.pdf-products{padding:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.pdf-product{background:white;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;transition:all 0.2s}
+.pdf-product:hover{box-shadow:0 4px 16px rgba(0,0,0,0.1)}
+.pdf-product-img-wrap{width:100%;aspect-ratio:1;background:#fafafa;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #e8e8e8;padding:24px;position:relative}
+.pdf-product-img-wrap img{width:100%;height:100%;object-fit:contain}
+.pdf-product-img-wrap .emoji{font-size:72px}
+.stock-corner{position:absolute;top:12px;right:12px;min-width:38px;height:38px;padding:0 10px;border-radius:19px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;box-shadow:0 3px 10px rgba(0,0,0,0.3)}
+.stock-corner.high{background:#4caf50}
+.stock-corner.medium{background:#ff9800}
+.stock-corner.low{background:#f44336}
+.pdf-product-info{padding:18px 16px;text-align:center}
+.pdf-product-code{font-size:17px;font-weight:700;color:#000;margin-bottom:10px;letter-spacing:0.3px}
+.pdf-product-price{font-size:22px;color:#2c3e50;font-weight:700;margin-bottom:10px}
+.pdf-product-price span{font-size:13px;font-weight:400;color:#999}
+.pdf-product-name{font-size:13px;color:#666;line-height:1.5;min-height:40px;margin-bottom:0}
+.product-features{font-size:11px;color:#777;line-height:1.4;margin-top:8px;padding-top:8px;border-top:1px solid #f0f0f0;text-align:center;font-weight:500}
+.pdf-footer{background:#f8f8f8;padding:16px 20px;border-top:1px solid #e0e0e0;text-align:center;font-size:11px;color:#666;line-height:1.6}
+
+@media (max-width:768px){
+  .pdf-products{grid-template-columns:repeat(2,1fr);gap:12px;padding:12px}
+  .pdf-product-img-wrap{padding:16px}
+  .pdf-product-img-wrap .emoji{font-size:56px}
+  .pdf-product-info{padding:12px}
+  .pdf-product-code{font-size:15px;margin-bottom:8px}
+  .pdf-product-price{font-size:18px;margin-bottom:8px}
+  .pdf-product-name{font-size:12px;min-height:32px}
+  .stock-corner{top:8px;right:8px;min-width:32px;height:32px;font-size:11px}
+  .contact-info{flex-direction:column;align-items:flex-start;gap:6px}
+  .header-stats{gap:28px}
+  .stat-number{font-size:24px}
+}
+
+.loading-state{text-align:center;padding:60px 20px;color:#999}
+.spinner{width:40px;height:40px;border:3px solid #f0f0f0;border-top-color:#2c3e50;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#323232;color:white;padding:12px 24px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:9999}
+.toast.show{opacity:1}
+
+.admin-btn{position:fixed;bottom:20px;right:20px;width:56px;height:56px;background:#2c3e50;color:white;border-radius:50%;border:none;font-size:24px;cursor:pointer;box-shadow:0 4px 12px rgba(44,62,80,0.4);z-index:50}
+.admin-btn:active{transform:scale(0.95)}
+</style>
+</head>
+<body>
+
+<div id="home" class="screen active">
+  <div class="header">
+    <div class="last-update" id="last-update-display">Última actualización: --</div>
+    <div class="sync-status">
+      <img src="https://www.temponovo.cl/asset/img/temponovo-logo-color.svg" alt="Temponovo" class="logo">
+      <div class="sync-dot"></div>
+      <span class="sync-label" id="sync-label">Cargando...</span>
+    </div>
+  </div>
+  
+  <div class="home-content">
+    <div id="home-content-inner">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <div>Sincronizando...</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="bottom-buttons">
+    <button class="download-btn" onclick="forceUpdate()">
+      <span>🔄</span>
+      <span>Actualizar</span>
+    </button>
+    <button class="download-btn" onclick="downloadSelectedCatalogs()" id="download-selected-btn" disabled>
+      <span>📄</span>
+      <span id="selected-count-text">Seleccionar</span>
+    </button>
+    <button class="download-btn" onclick="downloadAllCatalogs()">
+      <span>📦</span>
+      <span>Todos</span>
+    </button>
+  </div>
+  
+  <button class="admin-btn" onclick="showAdminPanel()">⚙️</button>
+</div>
+
+<div id="pdf-viewer" class="screen">
+  <div class="pdf-header">
+    <button class="back-btn" onclick="goHome()">‹</button>
+    <button class="back-btn" onclick="navigateCatalog(-1)" id="prev-catalog-btn" style="margin-left:8px">‹‹</button>
+    <div class="pdf-title">
+      <div id="pdf-title-header"></div>
+      <div style="font-size:11px;color:#999;margin-top:2px" id="product-count-label"></div>
+      <div id="sort-buttons" style="display:none;margin-top:8px;gap:8px">
+        <button class="sort-btn active" onclick="sortProducts('alpha')" id="sort-alpha">Alfabético</button>
+        <button class="sort-btn" onclick="sortProducts('subfamily')" id="sort-subfamily">Por Subfamilia</button>
+      </div>
+    </div>
+    <button class="back-btn" onclick="navigateCatalog(1)" id="next-catalog-btn" style="margin-right:8px">››</button>
+    <button class="filter-toggle-btn" onclick="toggleSearch()" id="search-btn" style="display:none;margin-right:8px">
+      <span>🔍</span>
+    </button>
+    <button class="filter-toggle-btn" onclick="toggleFilters()" id="filter-btn">
+      <span>⚙</span>
+      <span>Filtros</span>
+      <span class="filter-count" id="filter-count" style="display:none">0</span>
+    </button>
+    <button class="share-btn" onclick="shareCatalogPDF()">
+      <span>📄</span>
+      <span>PDF</span>
+    </button>
+  </div>
+  
+  <div id="search-bar" style="display:none;padding:12px 20px;background:#f8f8f8;border-bottom:1px solid #e0e0e0">
+    <input type="text" id="search-input" placeholder="Buscar productos..." 
+           oninput="searchProducts(this.value)"
+           style="width:100%;padding:10px 16px;border:1px solid #ddd;border-radius:8px;font-size:14px;outline:none">
+  </div>
+  
+  <div id="pdf-content" class="pdf-page"></div>
+</div>
+
+<div class="filters-overlay" id="filters-overlay" onclick="toggleFilters()"></div>
+<div class="filters-sidebar" id="filters-sidebar">
+  <div class="filters-header">
+    <div class="filters-title">Filtros</div>
+    <button class="close-filters" onclick="toggleFilters()">×</button>
+  </div>
+  <div id="filters-content"></div>
+  <button class="clear-filters-btn" onclick="clearAllFilters()">Limpiar filtros</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API_URL='https://temponovo-api.onrender.com/api/stock';
+const CARACT_URL='https://temponovo-api.onrender.com/api/caracteristicas';
+const UPDATE_INTERVAL=24*60*60*1000;
+const DB_NAME='temponovo_catalogs';
+
+let allProducts=[];
+let catalogs={};
+let catalogsByCategory={};
+let currentCatalog=null;
+let currentCatalogIndex=0;
+let catalogList=[];
+let selectedCatalogs=new Set();
+let caracteristicas={};
+let activeFilters={familias:[],subfamilias:[],generos:[],colores:[],tamanos:[],resistencias:[]};
+let filteredProducts=[];
+let selectedProducts=new Set();
+
+function toggleCatalogSelection(n,e){
+  e.stopPropagation();
+  selectedCatalogs.has(n)?selectedCatalogs.delete(n):selectedCatalogs.add(n);
+  updateSelectionUI();
+}
+
+function updateSelectionUI(){
+  const c=selectedCatalogs.size;
+  const btn=document.getElementById('download-selected-btn');
+  const txt=document.getElementById('selected-count-text');
+  if(c===0){
+    btn.disabled=true;
+    btn.classList.remove('has-selection');
+    txt.textContent='Seleccionar';
+  }else{
+    btn.disabled=false;
+    btn.classList.add('has-selection');
+    txt.textContent=`Descargar (${c})`;
+  }
+}
+
+function openDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(DB_NAME,1);
+    req.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains('products'))db.createObjectStore('products',{keyPath:'Default_code'});
+      if(!db.objectStoreNames.contains('meta'))db.createObjectStore('meta',{keyPath:'key'});
+    };
+    req.onsuccess=()=>res(req.result);
+    req.onerror=()=>rej(req.error);
+  });
+}
+
+async function saveProducts(p){
+  const db=await openDB();
+  const tx=db.transaction(['products','meta'],'readwrite');
+  const store=tx.objectStore('products');
+  await store.clear();
+  p.forEach(i=>store.put(i));
+  const meta=tx.objectStore('meta');
+  await meta.put({key:'last_sync',value:Date.now()});
+  await meta.put({key:'product_count',value:p.length});
+  return new Promise((res,rej)=>{
+    tx.oncomplete=res;
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+
+async function loadProducts(){
+  const db=await openDB();
+  const tx=db.transaction('products','readonly');
+  const req=tx.objectStore('products').getAll();
+  return new Promise((res,rej)=>{
+    req.onsuccess=()=>res(req.result);
+    req.onerror=()=>rej(req.error);
+  });
+}
+
+async function getLastSync(){
+  const db=await openDB();
+  const tx=db.transaction('meta','readonly');
+  const req=tx.objectStore('meta').get('last_sync');
+  return new Promise(res=>{
+    req.onsuccess=()=>res(req.result?.value||0);
+    req.onerror=()=>res(0);
+  });
+}
+
+function updateLastSyncDisplay(ts){
+  const el=document.getElementById('last-update-display');
+  if(!ts){el.textContent='Última actualización: --';return;}
+  const d=new Date(ts);
+  const now=new Date();
+  const diff=now-d;
+  const hours=Math.floor(diff/3600000);
+  const days=Math.floor(hours/24);
+  let txt;
+  if(days>0)txt=`Hace ${days} día${days>1?'s':''}`;
+  else if(hours>0)txt=`Hace ${hours} hora${hours>1?'s':''}`;
+  else txt='Recién actualizado';
+  el.textContent=`Última actualización: ${txt}`;
+}
+
+async function fetchProducts(){
+  setSyncStatus('Sincronizando...');
+  try{
+    const res=await fetch(API_URL);
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const data=await res.json();
+    if(!Array.isArray(data))throw new Error('Invalid response');
+    const inStock=data.filter(p=>(p.Stock||0)>0);
+    await saveProducts(inStock);
+    allProducts=inStock;
+    setSyncStatus('Actualizado');
+    showToast(`✓ ${inStock.length} productos sincronizados`);
+    updateLastSyncDisplay(Date.now());
+    return true;
+  }catch(err){
+    console.error('Sync error:',err);
+    setSyncStatus('Offline');
+    return false;
+  }
+}
+
+async function forceUpdate(){
+  if(!navigator.onLine){
+    showToast('Sin conexión a internet');
+    return;
+  }
+  showToast('Actualizando...');
+  await fetchCaracteristicas();
+  const success=await fetchProducts();
+  if(success){
+    buildCatalogs();
+    showToast('✓ Todo actualizado');
+  }else{
+    showToast('Error al actualizar');
+  }
+}
+
+async function fetchCaracteristicas(){
+  try{
+    const res=await fetch(CARACT_URL);
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    caracteristicas=await res.json();
+    console.log(`Características cargadas: ${Object.keys(caracteristicas).length}`);
+  }catch(err){
+    console.error('Error cargando características:',err);
+  }
+}
+
+function setSyncStatus(l){
+  document.getElementById('sync-label').textContent=l;
+}
+
+function buildCatalogs(){
+  catalogs={};
+  catalogsByCategory={};
+  
+  // Agrupar por Category (catálogos individuales)
+  allProducts.forEach(p=>{
+    // Si no tiene Category (subcategoría), usar Parent_category directamente
+    const category=p.Category || p.Parent_category || 'Sin categoría';
+    if(!catalogs[category]){
+      catalogs[category]={
+        name:category,
+        products:[],
+        parent:p.Parent_category||'Otros'
+      };
+    }
+    catalogs[category].products.push(p);
+  });
+  
+  // Agrupar catálogos por Parent_category (acordeones)
+  for(const cat of Object.values(catalogs)){
+    const parent=cat.parent;
+    if(!catalogsByCategory[parent])catalogsByCategory[parent]=[];
+    catalogsByCategory[parent].push(cat);
+  }
+  
+  catalogList=Object.keys(catalogs).sort();
+  renderCatalogList();
+}
+
+function toggleCategory(safeName){
+  const el=document.getElementById(`cat-${safeName}`);
+  if(el)el.classList.toggle('open');
+}
+
+function renderCatalogList(){
+  const content=document.getElementById('home-content-inner');
+  if(Object.keys(catalogsByCategory).length===0){
+    content.innerHTML='<div class="loading-state"><div>Sin catálogos</div></div>';
+    return;
+  }
+  
+  let html='';
+  
+  // Categoría TODOS - igual que el resto
+  html+=`<div class="catalog-item" onclick="openAllProductsCatalog()" style="cursor:pointer">
+    <div class="catalog-info">
+      <div class="catalog-name">📦 TODOS</div>
+      <div class="catalog-meta">${allProducts.length} productos</div>
+    </div>
+  </div>`;
+  
+  // Familias (Parent_category) - Click directo abre todos los productos
+  for(const[parentName,cats]of Object.entries(catalogsByCategory)){
+    const allProductsInFamily=cats.flatMap(c=>c.products);
+    const safeName=parentName.replace(/'/g,"\\'");
+    const isSelected=selectedCatalogs.has(parentName);
+    html+=`<div class="catalog-item" style="display:flex;align-items:center;gap:12px">
+      <input type="checkbox" class="catalog-checkbox" ${isSelected?'checked':''} 
+             onchange="toggleCatalogSelection('${safeName}',event)">
+      <div class="catalog-info" onclick="openFamilyCatalog('${safeName}')" style="cursor:pointer;flex:1">
+        <div class="catalog-name">${parentName}</div>
+        <div class="catalog-meta">${allProductsInFamily.length} productos</div>
+      </div>
+    </div>`;
+  }
+  
+  content.innerHTML=html;
+}
+
+function openAllProductsCatalog(){
+  currentCatalog={name:'Todos los productos',products:allProducts,isFamily:true};
+  currentCatalogIndex=-1; // -1 = TODOS
+  currentMode='catalogs';
+  activeFilters={familias:[],subfamilias:[],generos:[],colores:[],tamanos:[],resistencias:[]};
+  selectedProducts.clear();
+  filteredProducts=allProducts;
+  document.getElementById('pdf-title-header').textContent='Todos los productos';
+  document.getElementById('sort-buttons').style.display='flex';
+  document.getElementById('search-btn').style.display='flex';
+  updateProductCount();
+  renderFilters();
+  updateFilterCount();
+  sortProducts('alpha');
+}
+
+function openFamilyCatalog(familyName){
+  const cats=catalogsByCategory[familyName]||[];
+  const familyProducts=cats.flatMap(c=>c.products);
+  const familyList=Object.keys(catalogsByCategory);
+  currentCatalog={name:familyName,products:familyProducts,isFamily:true};
+  currentCatalogIndex=familyList.indexOf(familyName); // índice en la lista de familias
+  currentMode='catalogs';
+  activeFilters={familias:[],subfamilias:[],generos:[],colores:[],tamanos:[],resistencias:[]};
+  selectedProducts.clear();
+  filteredProducts=familyProducts;
+  document.getElementById('pdf-title-header').textContent=familyName;
+  document.getElementById('sort-buttons').style.display='flex';
+  document.getElementById('search-btn').style.display='flex';
+  updateProductCount();
+  renderFilters();
+  updateFilterCount();
+  sortProducts('alpha');
+}
+
+let currentSort='alpha';
+function sortProducts(mode){
+  currentSort=mode;
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`sort-${mode}`).classList.add('active');
+  
+  let sorted=[...filteredProducts];
+  if(mode==='alpha'){
+    sorted.sort((a,b)=>(a.Name||'').localeCompare(b.Name||''));
+  }else if(mode==='subfamily'){
+    sorted.sort((a,b)=>{
+      const catA=a.Category||'';
+      const catB=b.Category||'';
+      if(catA===catB)return(a.Name||'').localeCompare(b.Name||'');
+      return catA.localeCompare(catB);
+    });
+  }
+  renderCatalogProducts(sorted);
+  showScreen('pdf-viewer');
+}
+
+function toggleSearch(){
+  const bar=document.getElementById('search-bar');
+  const input=document.getElementById('search-input');
+  if(bar.style.display==='none'){
+    bar.style.display='block';
+    input.focus();
+  }else{
+    bar.style.display='none';
+    input.value='';
+    searchProducts('');
+  }
+}
+
+function searchProducts(query){
+  if(!currentCatalog)return;
+  const search=query.toLowerCase().trim();
+  if(!search){
+    sortProducts(currentSort);
+    return;
+  }
+  const results=filteredProducts.filter(p=>{
+    const name=(p.Name||'').toLowerCase();
+    const code=(p.Default_code||'').toLowerCase();
+    const category=(p.Category||'').toLowerCase();
+    return name.includes(search)||code.includes(search)||category.includes(search);
+  });
+  renderCatalogProducts(results);
+}
+
+function getAvailableFilters(products){
+  const filters={familias:{},subfamilias:{},generos:{},colores:{},tamanos:{},resistencias:{}};
+  products.forEach(p=>{
+    // Familia y Subfamilia
+    const familia=p.Parent_category||'Otros';
+    const subfamilia=p.Category||'';
+    filters.familias[familia]=(filters.familias[familia]||0)+1;
+    if(subfamilia)filters.subfamilias[subfamilia]=(filters.subfamilias[subfamilia]||0)+1;
+    
+    // Características
+    const c=caracteristicas[p.Default_code];
+    if(!c)return;
+    if(c.genero)filters.generos[c.genero]=(filters.generos[c.genero]||0)+1;
+    if(c.color)filters.colores[c.color]=(filters.colores[c.color]||0)+1;
+    if(c.tamano_esfera)filters.tamanos[c.tamano_esfera]=(filters.tamanos[c.tamano_esfera]||0)+1;
+    if(c.resistencia_agua)filters.resistencias[c.resistencia_agua]=(filters.resistencias[c.resistencia_agua]||0)+1;
+  });
+  return filters;
+}
+
+function renderFilters(){
+  if(!currentCatalog)return;
+  const filters=getAvailableFilters(currentCatalog.products);
+  const content=document.getElementById('filters-content');
+  let html='';
+  
+  // Familia
+  if(Object.keys(filters.familias).length>0){
+    html+=`<div class="filter-section"><div class="filter-section-title">Familia</div>`;
+    Object.entries(filters.familias).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([f,count])=>{
+      const checked=activeFilters.familias.includes(f)?'checked':'';
+      html+=`<div class="filter-option">
+        <input type="checkbox" id="fam-${f}" ${checked} onchange="toggleMultiFilter('familias','${f}')">
+        <label for="fam-${f}">${f}</label>
+        <span class="filter-option-count">(${count})</span>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  
+  // Subfamilia
+  if(Object.keys(filters.subfamilias).length>0){
+    html+=`<div class="filter-section"><div class="filter-section-title">Subfamilia</div>`;
+    Object.entries(filters.subfamilias).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([sf,count])=>{
+      const checked=activeFilters.subfamilias.includes(sf)?'checked':'';
+      html+=`<div class="filter-option">
+        <input type="checkbox" id="sub-${sf}" ${checked} onchange="toggleMultiFilter('subfamilias','${sf}')">
+        <label for="sub-${sf}">${sf}</label>
+        <span class="filter-option-count">(${count})</span>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  
+  if(Object.keys(filters.generos).length>0){
+    html+=`<div class="filter-section"><div class="filter-section-title">Género</div>`;
+    Object.entries(filters.generos).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([g,count])=>{
+      const checked=activeFilters.generos.includes(g)?'checked':'';
+      html+=`<div class="filter-option">
+        <input type="checkbox" id="gen-${g}" ${checked} onchange="toggleMultiFilter('generos','${g}')">
+        <label for="gen-${g}">${g}</label>
+        <span class="filter-option-count">(${count})</span>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  
+  if(Object.keys(filters.colores).length>0){
+    html+=`<div class="filter-section"><div class="filter-section-title">Color</div>`;
+    Object.entries(filters.colores).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([c,count])=>{
+      const checked=activeFilters.colores.includes(c)?'checked':'';
+      html+=`<div class="filter-option">
+        <input type="checkbox" id="col-${c}" ${checked} onchange="toggleMultiFilter('colores','${c}')">
+        <label for="col-${c}">${c}</label>
+        <span class="filter-option-count">(${count})</span>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  
+  if(Object.keys(filters.tamanos).length>0){
+    html+=`<div class="filter-section"><div class="filter-section-title">Tamaño esfera</div>`;
+    Object.entries(filters.tamanos).sort((a,b)=>a[0]-b[0]).forEach(([t,count])=>{
+      const checked=activeFilters.tamanos.includes(parseInt(t))?'checked':'';
+      html+=`<div class="filter-option">
+        <input type="checkbox" id="tam-${t}" ${checked} onchange="toggleMultiFilter('tamanos',${t})">
+        <label for="tam-${t}">${t}mm</label>
+        <span class="filter-option-count">(${count})</span>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  
+  if(Object.keys(filters.resistencias).length>0){
+    html+=`<div class="filter-section"><div class="filter-section-title">Resistencia al agua</div>`;
+    Object.entries(filters.resistencias).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([r,count])=>{
+      const checked=activeFilters.resistencias.includes(r)?'checked':'';
+      html+=`<div class="filter-option">
+        <input type="checkbox" id="res-${r}" ${checked} onchange="toggleMultiFilter('resistencias','${r}')">
+        <label for="res-${r}">${r}</label>
+        <span class="filter-option-count">(${count})</span>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  
+  content.innerHTML=html;
+}
+
+function toggleFilters(){
+  const sidebar=document.getElementById('filters-sidebar');
+  const overlay=document.getElementById('filters-overlay');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('show');
+}
+
+function toggleMultiFilter(type,value){
+  const idx=activeFilters[type].indexOf(value);
+  if(idx>-1){
+    activeFilters[type].splice(idx,1);
+  }else{
+    activeFilters[type].push(value);
+  }
+  applyFilters();
+  updateFilterCount();
+}
+
+function clearAllFilters(){
+  activeFilters={familias:[],subfamilias:[],generos:[],colores:[],tamanos:[],resistencias:[]};
+  applyFilters();
+  renderFilters();
+  updateFilterCount();
+}
+
+function updateFilterCount(){
+  const total=activeFilters.familias.length+activeFilters.subfamilias.length+activeFilters.generos.length+activeFilters.colores.length+activeFilters.tamanos.length+activeFilters.resistencias.length;
+  const badge=document.getElementById('filter-count');
+  if(total>0){
+    badge.textContent=total;
+    badge.style.display='inline-block';
+  }else{
+    badge.style.display='none';
+  }
+}
+
+function navigateCatalog(direction){
+  const familyList=Object.keys(catalogsByCategory);
+  const newIndex=currentCatalogIndex+direction;
+  
+  // Si estamos en TODOS (-1) y vamos atrás, no hacer nada
+  if(currentCatalogIndex===-1&&direction<0)return;
+  
+  // Si estamos en TODOS y vamos adelante, ir a primera familia
+  if(currentCatalogIndex===-1&&direction>0){
+    if(familyList.length>0){
+      openFamilyCatalog(familyList[0]);
+    }
+    return;
+  }
+  
+  // Si vamos atrás desde primera familia, ir a TODOS
+  if(newIndex<0){
+    openAllProductsCatalog();
+    return;
+  }
+  
+  // Si llegamos al final, no hacer nada
+  if(newIndex>=familyList.length)return;
+  
+  // Navegar a la familia
+  openFamilyCatalog(familyList[newIndex]);
+}
+
+function updateProductCount(){
+  const total=currentCatalog.products.length;
+  const showing=filteredProducts.length;
+  const label=document.getElementById('product-count-label');
+  if(showing<total){
+    label.textContent=`Mostrando ${showing} de ${total} productos`;
+  }else{
+    label.textContent=`${total} productos`;
+  }
+}
+function applyFilters(){
+  if(!currentCatalog)return;
+  let filtered=currentCatalog.products;
+  
+  // Filtrar por Familia
+  if(activeFilters.familias.length>0){
+    filtered=filtered.filter(p=>{
+      const familia=p.Parent_category||'Otros';
+      return activeFilters.familias.includes(familia);
+    });
+  }
+  
+  // Filtrar por Subfamilia
+  if(activeFilters.subfamilias.length>0){
+    filtered=filtered.filter(p=>{
+      const subfamilia=p.Category||'';
+      return activeFilters.subfamilias.includes(subfamilia);
+    });
+  }
+  
+  if(activeFilters.generos.length>0){
+    filtered=filtered.filter(p=>{
+      const c=caracteristicas[p.Default_code];
+      return c&&activeFilters.generos.includes(c.genero);
+    });
+  }
+  if(activeFilters.colores.length>0){
+    filtered=filtered.filter(p=>{
+      const c=caracteristicas[p.Default_code];
+      return c&&activeFilters.colores.includes(c.color);
+    });
+  }
+  if(activeFilters.tamanos.length>0){
+    filtered=filtered.filter(p=>{
+      const c=caracteristicas[p.Default_code];
+      return c&&activeFilters.tamanos.includes(c.tamano_esfera);
+    });
+  }
+  if(activeFilters.resistencias.length>0){
+    filtered=filtered.filter(p=>{
+      const c=caracteristicas[p.Default_code];
+      return c&&activeFilters.resistencias.includes(c.resistencia_agua);
+    });
+  }
+  
+  filteredProducts=filtered;
+  updateProductCount();
+  sortProducts(currentSort);
+}
+
+function openCatalog(n){
+  const name=decodeURIComponent(n);
+  currentCatalog=catalogs[name];
+  if(!currentCatalog){
+    showToast('Catálogo no encontrado');
+    return;
+  }
+  currentCatalogIndex=catalogList.indexOf(name);
+  currentMode='catalogs';
+  activeFilters={familias:[],subfamilias:[],generos:[],colores:[],tamanos:[],resistencias:[]};
+  selectedProducts.clear();
+  filteredProducts=currentCatalog.products;
+  document.getElementById('pdf-title-header').textContent=currentCatalog.name;
+  document.getElementById('sort-buttons').style.display='none';
+  document.getElementById('search-btn').style.display='none';
+  document.getElementById('search-bar').style.display='none';
+  updateProductCount();
+  renderFilters();
+  updateFilterCount();
+  renderCatalogProducts(currentCatalog.products);
+  showScreen('pdf-viewer');
+}
+
+function renderCatalogProducts(products){
+  const today=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const photoBase=localStorage.getItem('photo_base_url')||'';
+  let html='';
+  
+  if(selectedProducts.size>0){
+    html+=`<div style="background:#27ae60;color:white;padding:12px 20px;display:flex;align-items:center;justify-content:space-between">
+      <span>${selectedProducts.size} producto${selectedProducts.size>1?'s':''} seleccionado${selectedProducts.size>1?'s':''}</span>
+      <button onclick="generateSelectedPDF()" style="background:white;color:#27ae60;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer">Generar PDF</button>
+    </div>`;
+  }
+  
+  html+=`<div class="pdf-products">`;
+  products.forEach(p=>{
+    const price=formatPrice(p.Price||0);
+    const stock=p.Stock||0;
+    const stockDisplay=stock>100?'100+':stock;
+    let stockClass='high';
+    if(stock<10)stockClass='low';
+    else if(stock<15)stockClass='medium';
+    const imgTag=p.Default_code?`<img data-code="${p.Default_code}" class="lazy-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="${p.Name}" loading="lazy">`:'';
+    const caract=caracteristicas[p.Default_code];
+    let featuresHtml='';
+    if(caract){
+      const features=[];
+      if(caract.genero)features.push(caract.genero);
+      if(caract.color)features.push(caract.color);
+      if(caract.tamano_esfera)features.push(`${caract.tamano_esfera}mm`);
+      if(caract.resistencia_agua)features.push(caract.resistencia_agua);
+      if(features.length>0){
+        featuresHtml=`<div class="product-features">${features.join(' • ')}</div>`;
+      }
+    }
+    const isSelected=selectedProducts.has(p.Default_code);
+    html+=`
+      <div class="pdf-product" style="position:relative">
+        <input type="checkbox" ${isSelected?'checked':''} onchange="toggleProductSelection('${p.Default_code}')" 
+               style="position:absolute;top:10px;left:10px;width:20px;height:20px;cursor:pointer;z-index:10;accent-color:#27ae60">
+        <div class="pdf-product-img-wrap">
+          ${imgTag}
+          <div class="emoji" style="${imgTag?'display:none':'display:flex'}">📦</div>
+          <div class="stock-corner ${stockClass}">${stockDisplay}</div>
+        </div>
+        <div class="pdf-product-info">
+          <div class="pdf-product-code">${cleanProductCode(p.Default_code)||''}</div>
+          <div class="pdf-product-name">${cleanProductName(p.Name,p.Parent_category,p.Default_code)}</div>
+          <div class="pdf-product-price">${price} <span>+ IVA</span></div>
+          ${featuresHtml}
+        </div>
+      </div>`;
+  });
+  html+=`</div>
+    <div class="pdf-footer">
+      📞 9 6292 9654 · 2 2229 3138 | ✉️ ventas@temponovo.cl | 📍 Las Carmelitas 51, Las Condes<br>
+      Actualizado: ${today}
+    </div>`;
+  document.getElementById('pdf-content').innerHTML=html;
+  
+  // Cargar imágenes bajo demanda
+  setTimeout(()=>loadLazyImages(),100);
+}
+
+function toggleProductSelection(sku){
+  if(selectedProducts.has(sku)){
+    selectedProducts.delete(sku);
+  }else{
+    selectedProducts.add(sku);
+  }
+  renderCatalogProducts(filteredProducts);
+}
+
+// Cargar imágenes bajo demanda
+function loadLazyImages(){
+  const lazyImages=document.querySelectorAll('.lazy-img');
+  lazyImages.forEach(async img=>{
+    const code=img.dataset.code;
+    if(!code||img.dataset.loaded)return;
+    
+    try{
+      const response=await fetch(`https://temponovo-api.onrender.com/api/product-image/${code}`);
+      if(response.ok){
+        const data=await response.json();
+        if(data.image_base64){
+          img.src=`data:image/png;base64,${data.image_base64}`;
+          img.dataset.loaded='true';
+        }
+      }
+    }catch(err){
+      console.error('Error loading image:',code,err);
+    }
+  });
+}
+
+async function generateSelectedPDF(){
+  if(selectedProducts.size===0){
+    showToast('Selecciona al menos un producto');
+    return;
+  }
+  const selectedList=filteredProducts.filter(p=>selectedProducts.has(p.Default_code));
+  showToast('Generando PDF...');
+  try{
+    await generatePDF(currentCatalog.name+' (Selección)',selectedList);
+    showToast('✓ PDF descargado');
+  }catch(err){
+    console.error('PDF error:',err);
+    showToast('Error al generar PDF');
+  }
+}
+
+function formatPrice(p){
+  if(!p)return'$0';
+  return'$'+Math.round(p).toLocaleString('es-CL');
+}
+
+function cleanProductName(name,parent,code){
+  if(!name)return'Sin nombre';
+  let clean=name;
+  
+  // 1. Quitar el código si está en el nombre
+  if(code){
+    const codePattern=new RegExp(code.replace(/[-]/g,'\\-'),'gi');
+    clean=clean.replace(codePattern,'').trim();
+  }
+  
+  // 2. Quitar prefijos comunes basados en Parent_category
+  if(parent){
+    const prefixes=[
+      parent,
+      `${parent} -`,
+      `${parent} Casio`,
+      `${parent} Casio -`,
+      'Relojes',
+      'Relojes Casio',
+      'Relojes Q&Q',
+      'Relojes Q&Q -',
+      'Calculadora',
+      'Calculadora Casio',
+      'Calculadoras',
+      'Calculadoras Casio'
+    ];
+    for(const prefix of prefixes){
+      const regex=new RegExp(`^${prefix}\\s*-?\\s*`,'i');
+      clean=clean.replace(regex,'').trim();
+    }
+  }
+  
+  // 3. Limpiar espacios y guiones extras
+  clean=clean.replace(/^\s*-\s*/,'').replace(/\s*-\s*$/,'').trim();
+  clean=clean.replace(/\s+/g,' ');
+  
+  return clean||name;
+}
+
+function cleanProductCode(code){
+  if(!code)return'';
+  // Quitar prefijos repetidos como CA-CA-, RE-RE-, etc.
+  // Patrón: XX-XX- donde XX es cualquier combinación de 2-3 letras
+  let clean=code.replace(/^([A-Z]{2,3})-\1-/,'$1-');
+  // Si todavía queda algo repetido, intentar de nuevo
+  clean=clean.replace(/^([A-Z]{2,3})-\1-/,'$1-');
+  return clean;
+}
+
+async function generatePDF(catName, products) {
+  const {jsPDF} = window.jspdf;
+  
+  showToast('Generando PDF...');
+  
+  const pdf = new jsPDF({orientation: 'portrait', unit: 'mm', format: 'a4'});
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const margin = 15;
+  const usableWidth = pageWidth - (margin * 2);
+  const usableHeight = pageHeight - (margin * 2);
+  
+  // Cargar logo
+  let logoImg = null;
+  try {
+    const logoUrl = 'https://www.temponovo.cl/asset/img/temponovo-logo-color.svg';
+    logoImg = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null); // Si falla, continuar sin logo
+      img.src = logoUrl;
+      setTimeout(() => resolve(null), 3000); // Timeout 3s
+    });
+  } catch (e) {
+    console.log('Logo no disponible, continuando...');
+  }
+  
+  // Grid: 4 columnas × 3 filas
+  const cols = 4;
+  const rows = 3;
+  const productsPerPage = cols * rows;
+  
+  const cellWidth = (usableWidth - (8 * (cols - 1) / cols)) / cols;
+  const cellHeight = (usableHeight - 35 - 15 - (12 * (rows - 1) / rows)) / rows;
+  const gapX = 2;
+  const gapY = 3;
+  
+  function drawHeader(pdf) {
+    // Header izquierdo - contacto
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(51, 51, 51);
+    
+    pdf.text('📱 9 6292 9654  ·  ✉️ ventas@temponovo.cl', margin, margin + 5);
+    pdf.text('📞 2 229 3138  ·  📍 Las Carmelitas 51, Las Condes', margin, margin + 10);
+    
+    // Logo derecho
+    if (logoImg) {
+      const logoHeight = 10;
+      const logoWidth = (logoImg.width / logoImg.height) * logoHeight;
+      pdf.addImage(logoImg, 'PNG', pageWidth - margin - logoWidth, margin + 2, logoWidth, logoHeight);
+    } else {
+      // Fallback a texto si logo no carga
+      pdf.setFontSize(14);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(0, 0, 0);
+      const logoText = 'TEMPONOVO';
+      const logoWidth = pdf.getTextWidth(logoText);
+      pdf.text(logoText, pageWidth - margin - logoWidth, margin + 8);
+    }
+    
+    // Separador
+    pdf.setDrawColor(204, 204, 204);
+    pdf.setLineWidth(0.15);
+    pdf.line(margin, margin + 15, pageWidth - margin, margin + 15);
+  }
+  
+  function drawFooter(pdf) {
+    pdf.setDrawColor(238, 238, 238);
+    pdf.setLineWidth(0.1);
+    pdf.line(margin, pageHeight - margin - 8, pageWidth - margin, pageHeight - margin - 8);
+    
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(170, 170, 170);
+    const today = new Date().toLocaleDateString('es-CL', {day: '2-digit', month: '2-digit', year: 'numeric'});
+    pdf.text(today, pageWidth / 2, pageHeight - margin - 3, {align: 'center'});
+  }
+  
+  products.forEach((p, idx) => {
+    if (idx % productsPerPage === 0) {
+      if (idx > 0) {
+        drawFooter(pdf);
+        pdf.addPage();
+      }
+      drawHeader(pdf);
+    }
+    
+    const posInPage = idx % productsPerPage;
+    const col = posInPage % cols;
+    const row = Math.floor(posInPage / cols);
+    
+    const x = margin + (col * (cellWidth + gapX));
+    const y = margin + 20 + (row * (cellHeight + gapY));
+    
+    // IMAGEN (70% del alto)
+    const imgHeight = cellHeight * 0.70;
+    
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(x, y, cellWidth, imgHeight, 'F');
+    
+    // Placeholder (por ahora)
+    pdf.setFontSize(20);
+    pdf.text('📦', x + cellWidth/2, y + imgHeight/2, {align: 'center'});
+    
+    // NOMBRE (Bold, 8.5pt, #111111)
+    pdf.setFontSize(8.5);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(17, 17, 17);
+    const name = cleanProductName(p.Name, p.Parent_category, p.Default_code) || '';
+    const nameLines = pdf.splitTextToSize(name, cellWidth - 2);
+    pdf.text(nameLines.slice(0, 2), x + cellWidth/2, y + imgHeight + 4, {align: 'center'});
+    
+    // PRECIO (Bold, 8pt, #111111)
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'bold');
+    const price = formatPrice(p.Price || 0) + ' +IVA';
+    pdf.text(price, x + cellWidth/2, y + imgHeight + 10, {align: 'center'});
+    
+    // SPECS (Regular, 6.5pt, #555555)
+    const caract = caracteristicas[p.Default_code];
+    if (caract) {
+      pdf.setFontSize(6.5);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(85, 85, 85);
+      
+      const specs = [];
+      if (caract.tamano_esfera) specs.push(caract.tamano_esfera + 'mm');
+      if (caract.color) specs.push(caract.color);
+      if (caract.resistencia_agua) specs.push(caract.resistencia_agua);
+      
+      if (specs.length > 0) {
+        const specText = specs.join(' · ');
+        const specLines = pdf.splitTextToSize(specText, cellWidth - 2);
+        pdf.text(specLines.slice(0, 1), x + cellWidth/2, y + imgHeight + 15, {align: 'center'});
+      }
+    }
+    
+    // CATEGORÍA (Italic, 6pt, #888888)
+    pdf.setFontSize(6);
+    pdf.setFont('helvetica', 'italic');
+    pdf.setTextColor(136, 136, 136);
+    const category = p.Category || p.Parent_category || '';
+    if (category) {
+      pdf.text(category, x + cellWidth/2, y + imgHeight + 19, {align: 'center', maxWidth: cellWidth - 2});
+    }
+  });
+  
+  drawFooter(pdf);
+  
+  const filename = `${catName.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+  pdf.save(filename);
+  
+  showToast('✓ PDF descargado');
+}Height=70;
+  const productsPerPage=12; // 3 filas × 4 columnas
+  
+  let currentY=margin;
+  let productCount=0;
+  let pageCount=1;
+  
+  // Encabezado primera página
+  pdf.setFontSize(18);
+  pdf.setFont('helvetica','bold');
+  pdf.text(catName,pageWidth/2,currentY,{align:'center'});
+  
+  currentY+=8;
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica','normal');
+  const today=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
+  pdf.text(today,pageWidth/2,currentY,{align:'center'});
+  
+  currentY+=12;
+  
+  products.forEach((p,idx)=>{
+    // Nueva página si es necesario
+    if(productCount>0&&productCount%productsPerPage===0){
+      pdf.addPage();
+      currentY=margin;
+      pageCount++;
+    }
+    
+    const posInRow=productCount%cols;
+    const row=Math.floor((productCount%productsPerPage)/cols);
+    
+    const x=margin+(posInRow*colWidth);
+    const y=currentY+(row*productHeight);
+    
+    // Rectángulo del producto
+    pdf.setDrawColor(224,224,224);
+    pdf.setLineWidth(0.3);
+    pdf.rect(x,y,colWidth-2,productHeight-2);
+    
+    // Código
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica','bold');
+    const code=cleanProductCode(p.Default_code)||'';
+    pdf.text(code,x+(colWidth/2)-1,y+8,{align:'center',maxWidth:colWidth-6});
+    
+    // Nombre (limpio)
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica','normal');
+    const name=cleanProductName(p.Name,p.Parent_category,p.Default_code)||'';
+    const nameLines=pdf.splitTextToSize(name,colWidth-8);
+    pdf.text(nameLines.slice(0,3),x+(colWidth/2)-1,y+14,{align:'center'});
+    
+    // Precio
+    pdf.setFontSize(13);
+    pdf.setFont('helvetica','bold');
+    const price=formatPrice(p.Price||0);
+    pdf.text(price,x+(colWidth/2)-1,y+35,{align:'center'});
+    
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica','normal');
+    pdf.text('+ IVA',x+(colWidth/2)-1,y+40,{align:'center'});
+    
+    // Stock (esquina)
+    const stock=p.Stock||0;
+    const stockDisplay=stock>100?'100+':stock.toString();
+    const stockColor=stock<10?[244,67,54]:stock<15?[255,152,0]:[76,175,80];
+    
+    pdf.setFillColor(...stockColor);
+    pdf.roundedRect(x+colWidth-16,y+2,10,6,1,1,'F');
+    pdf.setTextColor(255,255,255);
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica','bold');
+    pdf.text(stockDisplay,x+colWidth-11,y+5.5,{align:'center'});
+    pdf.setTextColor(0,0,0);
+    
+    // Características (si existen)
+    const caract=caracteristicas[p.Default_code];
+    if(caract){
+      const features=[];
+      if(caract.genero)features.push(caract.genero);
+      if(caract.color)features.push(caract.color);
+      if(caract.tamano)features.push(caract.tamano);
+      if(caract.resistencia)features.push(caract.resistencia);
+      
+      if(features.length>0){
+        pdf.setFontSize(6);
+        pdf.setFont('helvetica','normal');
+        pdf.setTextColor(119,119,119);
+        const featText=features.join(' • ');
+        const featLines=pdf.splitTextToSize(featText,colWidth-6);
+        pdf.text(featLines.slice(0,2),x+(colWidth/2)-1,y+47,{align:'center'});
+        pdf.setTextColor(0,0,0);
+      }
+    }
+    
+    productCount++;
+  });
+  
+  // Pie de página en última página
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica','italic');
+  pdf.setTextColor(102,102,102);
+  pdf.text('Precios + IVA - Stock disponible puede variar',pageWidth/2,pageHeight-10,{align:'center'});
+  
+  const filename=`${catName.replace(/[^a-z0-9]/gi,'_')}.pdf`;
+  pdf.save(filename);
+  
+  showToast('✓ PDF descargado');
+}
+
+async function shareCatalogPDF(){
+  if(!currentCatalog)return;
+  showToast('Generando PDF...');
+  try{
+    await generatePDF(currentCatalog.name,filteredProducts);
+    showToast('✓ PDF descargado');
+  }catch(err){
+    console.error('PDF error:',err);
+    showToast('Error al generar PDF');
+  }
+}
+
+async function downloadSelectedCatalogs(){
+  if(selectedCatalogs.size===0){
+    showToast('Selecciona al menos una familia');
+    return;
+  }
+  showToast(`Generando ${selectedCatalogs.size} PDFs...`);
+  let completed=0;
+  for(const familyName of selectedCatalogs){
+    const cats=catalogsByCategory[familyName];
+    if(!cats)continue;
+    const familyProducts=cats.flatMap(c=>c.products);
+    try{
+      await generatePDF(familyName,familyProducts);
+      completed++;
+      await new Promise(res=>setTimeout(res,500));
+    }catch(err){
+      console.error(`Error generando ${familyName}:`,err);
+    }
+  }
+  showToast(`✓ ${completed} PDFs descargados`);
+  selectedCatalogs.clear();
+  renderCatalogList();
+  updateSelectionUI();
+}
+
+async function downloadAllCatalogs(){
+  if(Object.keys(catalogs).length===0){
+    showToast('No hay catálogos disponibles');
+    return;
+  }
+  showToast(`Generando ${Object.keys(catalogs).length} PDFs...`);
+  let completed=0;
+  for(const[catName,catalog]of Object.entries(catalogs)){
+    try{
+      await generatePDF(catName,catalog.products);
+      completed++;
+      await new Promise(res=>setTimeout(res,500));
+    }catch(err){
+      console.error(`Error generando ${catName}:`,err);
+    }
+  }
+  showToast(`✓ ${completed} PDFs descargados`);
+}
+
+function showAdminPanel(){
+  const url=prompt('URL base de fotos en Google Drive:',localStorage.getItem('photo_base_url')||'');
+  if(url!==null){
+    localStorage.setItem('photo_base_url',url.trim());
+    showToast('✓ URL de fotos guardada');
+    if(currentCatalog){
+      openCatalog(encodeURIComponent(currentCatalog.name));
+    }
+  }
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function goHome(){
+  showScreen('home');
+  const sidebar=document.getElementById('filters-sidebar');
+  const overlay=document.getElementById('filters-overlay');
+  sidebar.classList.remove('open');
+  overlay.classList.remove('show');
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+async function init(){
+  // Registrar Service Worker
+  if('serviceWorker' in navigator){
+    try{
+      await navigator.serviceWorker.register('/sw.js');
+      console.log('Service Worker registrado');
+    }catch(err){
+      console.error('Service Worker error:',err);
+    }
+  }
+  
+  await fetchCaracteristicas();
+  allProducts=await loadProducts();
+  if(allProducts.length>0){
+    buildCatalogs();
+    setSyncStatus('Offline');
+    const lastSync=await getLastSync();
+    updateLastSyncDisplay(lastSync);
+  }
+  const lastSync=await getLastSync();
+  const needsUpdate=Date.now()-lastSync>UPDATE_INTERVAL;
+  if(navigator.onLine&&(needsUpdate||allProducts.length===0)){
+    const success=await fetchProducts();
+    if(success)buildCatalogs();
+  }
+  window.addEventListener('online',async()=>{
+    showToast('Conexión restaurada');
+    await fetchProducts();
+    buildCatalogs();
+  });
+}
+
+init();
+</script>
+</body>
+</html>
