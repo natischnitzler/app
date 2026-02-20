@@ -849,10 +849,12 @@ function toggleProductSelection(sku){
   renderCatalogProducts(filteredProducts);
 }
 
-// Cargar imágenes bajo demanda
-function loadLazyImages(){
-  const lazyImages=document.querySelectorAll('.lazy-img');
-  lazyImages.forEach(async img=>{
+// Cargar imágenes bajo demanda CON LÍMITE DE CONCURRENCIA
+async function loadLazyImages(){
+  const lazyImages=Array.from(document.querySelectorAll('.lazy-img'));
+  const CONCURRENT_LIMIT=5; // Máximo 5 imágenes al mismo tiempo
+  
+  async function loadImage(img){
     const code=img.dataset.code;
     if(!code||img.dataset.loaded)return;
     
@@ -868,7 +870,13 @@ function loadLazyImages(){
     }catch(err){
       console.error('Error loading image:',code,err);
     }
-  });
+  }
+  
+  // Procesar en lotes de CONCURRENT_LIMIT
+  for(let i=0;i<lazyImages.length;i+=CONCURRENT_LIMIT){
+    const batch=lazyImages.slice(i,i+CONCURRENT_LIMIT);
+    await Promise.all(batch.map(img=>loadImage(img)));
+  }
 }
 
 async function generateSelectedPDF(){
@@ -1188,10 +1196,19 @@ function showToast(msg){
 
 async function init(){
   // Registrar Service Worker
+  let swRegistration;
   if('serviceWorker' in navigator){
     try{
-      await navigator.serviceWorker.register('/sw.js');
+      swRegistration=await navigator.serviceWorker.register('/sw.js');
       console.log('Service Worker registrado');
+      
+      // Escuchar progreso de pre-cache
+      navigator.serviceWorker.addEventListener('message',event=>{
+        if(event.data.type==='PRECACHE_PROGRESS'){
+          const{processed,total}=event.data;
+          console.log(`Imágenes cacheadas: ${processed}/${total}`);
+        }
+      });
     }catch(err){
       console.error('Service Worker error:',err);
     }
@@ -1209,7 +1226,20 @@ async function init(){
   const needsUpdate=Date.now()-lastSync>UPDATE_INTERVAL;
   if(navigator.onLine&&(needsUpdate||allProducts.length===0)){
     const success=await fetchProducts();
-    if(success)buildCatalogs();
+    if(success){
+      buildCatalogs();
+      // Iniciar pre-cache de imágenes en background
+      if(swRegistration&&swRegistration.active){
+        const imageUrls=allProducts
+          .filter(p=>p.Default_code)
+          .map(p=>`https://temponovo-api.onrender.com/api/product-image/${p.Default_code}`);
+        swRegistration.active.postMessage({
+          type:'PRECACHE_IMAGES',
+          urls:imageUrls
+        });
+        console.log(`Iniciando pre-cache de ${imageUrls.length} imágenes...`);
+      }
+    }
   }
   window.addEventListener('online',async()=>{
     showToast('Conexión restaurada');
