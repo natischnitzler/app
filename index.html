@@ -963,7 +963,7 @@ function cleanProductCode(code){
 async function generatePDF(catName, products) {
   const {jsPDF} = window.jspdf;
   
-  showToast('Generando PDF...');
+  showToast('Preparando PDF...');
   
   const pdf = new jsPDF({orientation: 'portrait', unit: 'mm', format: 'a4'});
   const pageWidth = 210;
@@ -980,13 +980,45 @@ async function generatePDF(catName, products) {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => resolve(img);
-      img.onerror = () => resolve(null); // Si falla, continuar sin logo
+      img.onerror = () => resolve(null);
       img.src = logoUrl;
-      setTimeout(() => resolve(null), 3000); // Timeout 3s
+      setTimeout(() => resolve(null), 5000);
     });
   } catch (e) {
-    console.log('Logo no disponible, continuando...');
+    console.log('Logo no disponible');
   }
+  
+  // CARGAR IMÁGENES DE PRODUCTOS
+  showToast(`Cargando ${products.length} imágenes...`);
+  const productImages = {};
+  
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < products.length; i += BATCH_SIZE) {
+    const batch = products.slice(i, i + BATCH_SIZE);
+    
+    await Promise.all(
+      batch.map(async (p) => {
+        if (!p.Default_code) return;
+        
+        try {
+          const response = await fetch(`https://temponovo-api.onrender.com/api/product-image/${p.Default_code}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.image_base64) {
+              productImages[p.Default_code] = data.image_base64;
+            }
+          }
+        } catch (err) {
+          console.log(`No se pudo cargar imagen para ${p.Default_code}`);
+        }
+      })
+    );
+    
+    const loaded = Math.min(i + BATCH_SIZE, products.length);
+    showToast(`Cargadas ${loaded}/${products.length} imágenes`);
+  }
+  
+  showToast('Generando PDF...');
   
   // Grid: 4 columnas × 3 filas
   const cols = 4;
@@ -999,21 +1031,31 @@ async function generatePDF(catName, products) {
   const gapY = 3;
   
   function drawHeader(pdf) {
-    // Header izquierdo - contacto
+    // Header izquierdo - contacto SIN EMOJIS
     pdf.setFontSize(8);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(51, 51, 51);
     
-    pdf.text('📱 9 6292 9654  ·  ✉️ ventas@temponovo.cl', margin, margin + 5);
-    pdf.text('📞 2 229 3138  ·  📍 Las Carmelitas 51, Las Condes', margin, margin + 10);
+    pdf.text('Tel: +56 9 6292 9654 - +56 2 2229 3138', margin, margin + 5);
+    pdf.text('ventas@temponovo.cl  |  Las Carmelitas 51, Las Condes', margin, margin + 10);
     
     // Logo derecho
     if (logoImg) {
-      const logoHeight = 10;
-      const logoWidth = (logoImg.width / logoImg.height) * logoHeight;
-      pdf.addImage(logoImg, 'PNG', pageWidth - margin - logoWidth, margin + 2, logoWidth, logoHeight);
+      try {
+        const logoHeight = 10;
+        const logoWidth = (logoImg.width / logoImg.height) * logoHeight;
+        pdf.addImage(logoImg, 'PNG', pageWidth - margin - logoWidth, margin + 2, logoWidth, logoHeight);
+      } catch (e) {
+        // Fallback a texto
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(0, 0, 0);
+        const logoText = 'TEMPONOVO';
+        const logoWidth = pdf.getTextWidth(logoText);
+        pdf.text(logoText, pageWidth - margin - logoWidth, margin + 8);
+      }
     } else {
-      // Fallback a texto si logo no carga
+      // Fallback a texto
       pdf.setFontSize(14);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(0, 0, 0);
@@ -1056,36 +1098,75 @@ async function generatePDF(catName, products) {
     const x = margin + (col * (cellWidth + gapX));
     const y = margin + 20 + (row * (cellHeight + gapY));
     
-    // IMAGEN (70% del alto)
     const imgHeight = cellHeight * 0.70;
     
+    // Fondo blanco
     pdf.setFillColor(255, 255, 255);
     pdf.rect(x, y, cellWidth, imgHeight, 'F');
     
-    // Placeholder (por ahora)
-    pdf.setFontSize(20);
-    pdf.text('📦', x + cellWidth/2, y + imgHeight/2, {align: 'center'});
+    // IMAGEN REAL DEL PRODUCTO
+    const imageBase64 = productImages[p.Default_code];
+    if (imageBase64) {
+      try {
+        const imgPadding = 3;
+        const maxWidth = cellWidth - (imgPadding * 2);
+        const maxHeight = imgHeight - (imgPadding * 2);
+        
+        pdf.addImage(
+          `data:image/png;base64,${imageBase64}`,
+          'PNG',
+          x + imgPadding,
+          y + imgPadding,
+          maxWidth,
+          maxHeight,
+          undefined,
+          'FAST'
+        );
+      } catch (e) {
+        // Sin imagen: borde gris
+        pdf.setDrawColor(220, 220, 220);
+        pdf.setLineDash([2, 2]);
+        pdf.rect(x + 5, y + 5, cellWidth - 10, imgHeight - 10);
+        pdf.setLineDash([]);
+      }
+    } else {
+      // Sin imagen: borde gris punteado
+      pdf.setDrawColor(220, 220, 220);
+      pdf.setLineDash([2, 2]);
+      pdf.rect(x + 5, y + 5, cellWidth - 10, imgHeight - 10);
+      pdf.setLineDash([]);
+    }
     
-    // NOMBRE (Bold, 8.5pt, #111111)
-    pdf.setFontSize(8.5);
+    // CÓDIGO DE PRODUCTO
+    pdf.setFontSize(7.5);
     pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(17, 17, 17);
-    const name = cleanProductName(p.Name, p.Parent_category, p.Default_code) || '';
-    const nameLines = pdf.splitTextToSize(name, cellWidth - 2);
-    pdf.text(nameLines.slice(0, 2), x + cellWidth/2, y + imgHeight + 4, {align: 'center'});
+    pdf.setTextColor(0, 0, 0);
+    const code = cleanProductCode(p.Default_code) || '';
+    pdf.text(code, x + cellWidth/2, y + imgHeight + 3, {align: 'center'});
     
-    // PRECIO (Bold, 8pt, #111111)
+    // CATEGORÍA (en lugar de nombre largo)
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(80, 80, 80);
+    const category = p.Category || p.Parent_category || '';
+    if (category) {
+      const catLines = pdf.splitTextToSize(category, cellWidth - 2);
+      pdf.text(catLines.slice(0, 1), x + cellWidth/2, y + imgHeight + 7, {align: 'center'});
+    }
+    
+    // PRECIO
     pdf.setFontSize(8);
     pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 0, 0);
     const price = formatPrice(p.Price || 0) + ' +IVA';
-    pdf.text(price, x + cellWidth/2, y + imgHeight + 10, {align: 'center'});
+    pdf.text(price, x + cellWidth/2, y + imgHeight + 12, {align: 'center'});
     
-    // SPECS (Regular, 6.5pt, #555555)
+    // CARACTERÍSTICAS
     const caract = caracteristicas[p.Default_code];
     if (caract) {
-      pdf.setFontSize(6.5);
+      pdf.setFontSize(6);
       pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(85, 85, 85);
+      pdf.setTextColor(100, 100, 100);
       
       const specs = [];
       if (caract.tamano_esfera) specs.push(caract.tamano_esfera + 'mm');
@@ -1093,19 +1174,10 @@ async function generatePDF(catName, products) {
       if (caract.resistencia_agua) specs.push(caract.resistencia_agua);
       
       if (specs.length > 0) {
-        const specText = specs.join(' · ');
+        const specText = specs.join(' | ');
         const specLines = pdf.splitTextToSize(specText, cellWidth - 2);
-        pdf.text(specLines.slice(0, 1), x + cellWidth/2, y + imgHeight + 15, {align: 'center'});
+        pdf.text(specLines.slice(0, 1), x + cellWidth/2, y + imgHeight + 16, {align: 'center'});
       }
-    }
-    
-    // CATEGORÍA (Italic, 6pt, #888888)
-    pdf.setFontSize(6);
-    pdf.setFont('helvetica', 'italic');
-    pdf.setTextColor(136, 136, 136);
-    const category = p.Category || p.Parent_category || '';
-    if (category) {
-      pdf.text(category, x + cellWidth/2, y + imgHeight + 19, {align: 'center', maxWidth: cellWidth - 2});
     }
   });
   
@@ -1114,9 +1186,10 @@ async function generatePDF(catName, products) {
   const filename = `${catName.replace(/[^a-z0-9]/gi, '_')}.pdf`;
   pdf.save(filename);
   
-  showToast('✓ PDF descargado');
+  const withImages = Object.keys(productImages).length;
+  const withoutImages = products.length - withImages;
+  showToast(`✓ PDF: ${withImages} con foto, ${withoutImages} sin foto`);
 }
-
 async function shareCatalogPDF(){
   if(!currentCatalog)return;
   showToast('Generando PDF...');
