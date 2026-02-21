@@ -230,7 +230,7 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
 <script>
 const API_URL='https://temponovo-api.onrender.com/api/stock';
 const CARACT_URL='https://temponovo-api.onrender.com/api/caracteristicas';
-const UPDATE_INTERVAL=24*60*60*1000;
+const UPDATE_INTERVAL=3*60*60*1000; // 3 horas
 const DB_NAME='temponovo_catalogs';
 
 let allProducts=[];
@@ -1280,8 +1280,7 @@ function showToast(msg){
   setTimeout(()=>t.classList.remove('show'),3000);
 }
 
-// Constantes
-const UPDATE_INTERVAL = 3 * 60 * 60 * 1000; // 3 horas
+// Variable para el intervalo de sincronización
 let syncInterval = null;
 
 // Mostrar pantalla de carga inicial
