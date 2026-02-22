@@ -1436,12 +1436,25 @@ async function init() {
     }
   }
   
-  // Verificar si es primera carga
+  // Cargar características primero
+  await fetchCaracteristicas();
+  
+  // Intentar cargar productos guardados
+  allProducts = await loadProducts();
   const lastSync = await getLastSync();
+  
   const isFirstLoad = !allProducts || allProducts.length === 0;
+  
+  console.log('Estado:', {
+    isFirstLoad,
+    productsCount: allProducts ? allProducts.length : 0,
+    lastSync: lastSync ? new Date(lastSync).toLocaleString() : 'nunca',
+    online: navigator.onLine
+  });
   
   if (isFirstLoad) {
     // PRIMERA CARGA - Descargar TODO
+    console.log('🆕 Primera carga detectada');
     showLoadingScreen('Conectando con Odoo...');
     
     if (!navigator.onLine) {
@@ -1450,48 +1463,47 @@ async function init() {
       return;
     }
     
-    // 1. Descargar características
-    showLoadingScreen('Cargando características...');
-    await fetchCaracteristicas();
-    
-    // 2. Descargar productos
-    showLoadingScreen('Cargando productos...');
+    // 1. Descargar productos
+    showLoadingScreen('Cargando productos desde Odoo...');
     const success = await fetchProducts();
     
-    if (!success) {
+    if (!success || !allProducts || allProducts.length === 0) {
       hideLoadingScreen();
       showToast('❌ Error al cargar productos');
       return;
     }
     
+    console.log(`✅ ${allProducts.length} productos descargados`);
     buildCatalogs();
     
-    // 3. Descargar TODAS las imágenes
+    // 2. Descargar TODAS las imágenes
     await downloadAllImages(allProducts, swRegistration);
     
     showLoadingScreen('¡Listo! Abriendo catálogo...');
     await new Promise(r => setTimeout(r, 500));
     
     hideLoadingScreen();
+    setSyncStatus(navigator.onLine ? 'Online' : 'Offline');
+    updateLastSyncDisplay(Date.now());
     showToast('✓ Catálogo listo para usar offline');
     
   } else {
-    // CARGA NORMAL - Usar datos guardados
-    await fetchCaracteristicas();
-    allProducts = await loadProducts();
+    // CARGA NORMAL - Ya tiene datos guardados
+    console.log(`✅ Cargando ${allProducts.length} productos guardados`);
     
-    if (allProducts.length > 0) {
-      buildCatalogs();
-      setSyncStatus('Offline');
-      updateLastSyncDisplay(lastSync);
-    }
+    buildCatalogs();
+    setSyncStatus(navigator.onLine ? 'Online' : 'Offline');
+    updateLastSyncDisplay(lastSync);
     
     // Verificar si necesita actualización
     const needsUpdate = Date.now() - lastSync > UPDATE_INTERVAL;
     
+    console.log('Necesita actualización:', needsUpdate, 'Online:', navigator.onLine);
+    
     if (navigator.onLine && needsUpdate) {
-      // Sincronizar en background
-      setTimeout(() => autoSync(), 1000);
+      // Sincronizar en background (sin bloquear la UI)
+      console.log('🔄 Programando sincronización en background...');
+      setTimeout(() => autoSync(), 2000);
     }
   }
   
