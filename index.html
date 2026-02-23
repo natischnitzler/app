@@ -96,11 +96,11 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
 .stock-corner.medium{background:#ff9800}
 .stock-corner.low{background:#f44336}
 .pdf-product-info{padding:12px 16px;text-align:center}
-.pdf-product-code{font-size:17px;font-weight:700;color:#000;margin-bottom:8px;letter-spacing:0.3px}
+.pdf-product-code{font-size:22px;font-weight:700;color:#000;margin-bottom:8px;letter-spacing:0.3px}
 .pdf-product-category{font-size:12px;color:#666;margin-bottom:6px;font-weight:500}
 .pdf-product-price{font-size:22px;color:#2c3e50;font-weight:700;margin-bottom:8px}
 .pdf-product-price span{font-size:13px;font-weight:400;color:#999}
-.product-features{font-size:13px;color:#777;line-height:1.4;margin-top:0;padding-top:0;border-top:none;text-align:center;font-weight:500}
+.product-features{font-size:17px;color:#777;line-height:1.4;margin-top:0;padding-top:0;border-top:none;text-align:center;font-weight:500}
 .product-features{font-size:11px;color:#777;line-height:1.4;margin-top:8px;padding-top:8px;border-top:1px solid #f0f0f0;text-align:center;font-weight:500}
 .pdf-footer{background:#f8f8f8;padding:16px 20px;border-top:1px solid #e0e0e0;text-align:center;font-size:11px;color:#666;line-height:1.6}
 
@@ -109,10 +109,10 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
   .pdf-product-img-wrap{padding:8px}
   .pdf-product-img-wrap .emoji{font-size:32px}
   .pdf-product-info{padding:6px}
-  .pdf-product-code{font-size:10px;margin-bottom:3px}
+  .pdf-product-code{font-size:15px;margin-bottom:3px}
   .pdf-product-category{font-size:9px;margin-bottom:3px}
   .pdf-product-price{font-size:11px;margin-bottom:3px}
-  .product-features{font-size:10px}
+  .product-features{font-size:13px}
   .stock-corner{top:4px;right:4px;min-width:22px;height:22px;font-size:9px}
   .contact-info{flex-direction:column;align-items:flex-start;gap:6px}
   .header-stats{gap:28px}
@@ -494,9 +494,13 @@ function sortProducts(mode){
   
   let sorted=[...filteredProducts];
   if(mode==='alpha'){
-    sorted.sort((a,b)=>(a.Name||'').localeCompare(b.Name||''));
+    sorted.sort((a,b)=>{
+      const codeA = cleanProductCode(a.Default_code, a.Name)||'';
+      const codeB = cleanProductCode(b.Default_code, b.Name)||'';
+      return codeA.localeCompare(codeB);
+    });
   }else if(mode==='family'){
-    // Ordenar por familia (primera parte de Category o Parent_category) y luego alfabéticamente
+    // Ordenar por familia (primera parte de Category o Parent_category) y luego por código
     sorted.sort((a,b)=>{
       // Extraer familia: "Relojes Casio / Murales" → "Relojes Casio"
       const getFamilyPart = (cat) => {
@@ -507,14 +511,27 @@ function sortProducts(mode){
       const famA = getFamilyPart(a.Category) || a.Parent_category || '';
       const famB = getFamilyPart(b.Category) || b.Parent_category || '';
       
-      if(famA===famB) return (a.Name||'').localeCompare(b.Name||'');
+      // Si misma familia, ordenar por código
+      if(famA===famB){
+        const codeA = cleanProductCode(a.Default_code, a.Name)||'';
+        const codeB = cleanProductCode(b.Default_code, b.Name)||'';
+        return codeA.localeCompare(codeB);
+      }
+      
       return famA.localeCompare(famB);
     });
   }else if(mode==='subfamily'){
     sorted.sort((a,b)=>{
       const catA=a.Category||'';
       const catB=b.Category||'';
-      if(catA===catB)return(a.Name||'').localeCompare(b.Name||'');
+      
+      // Si misma categoría, ordenar por código (no por nombre)
+      if(catA===catB){
+        const codeA = cleanProductCode(a.Default_code, a.Name)||'';
+        const codeB = cleanProductCode(b.Default_code, b.Name)||'';
+        return codeA.localeCompare(codeB);
+      }
+      
       return catA.localeCompare(catB);
     });
   }
