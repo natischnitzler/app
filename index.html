@@ -187,9 +187,9 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
       <div id="pdf-title-header"></div>
       <div style="font-size:11px;color:#999;margin-top:2px" id="product-count-label"></div>
       <div id="sort-buttons" style="display:none;margin-top:8px;gap:8px">
-        <button class="sort-btn active" onclick="sortProducts('family')" id="sort-family">Por Familia</button>
+        <button class="sort-btn active" onclick="sortProducts('subfamily')" id="sort-subfamily">Por Subfamilia</button>
         <button class="sort-btn" onclick="sortProducts('alpha')" id="sort-alpha">Alfabético</button>
-        <button class="sort-btn" onclick="sortProducts('subfamily')" id="sort-subfamily">Por Subfamilia</button>
+        <button class="sort-btn" onclick="sortProducts('family')" id="sort-family">Por Familia</button>
       </div>
     </div>
     <button class="back-btn" onclick="navigateCatalog(1)" id="next-catalog-btn" style="margin-right:8px">››</button>
@@ -486,7 +486,7 @@ function openFamilyCatalog(familyName){
   sortProducts('alpha');
 }
 
-let currentSort='family'; // Por defecto ordenar por familia
+let currentSort='subfamily'; // Por defecto ordenar por subfamilia y luego alfabético
 function sortProducts(mode){
   currentSort=mode;
   document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
