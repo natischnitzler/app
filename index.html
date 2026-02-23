@@ -187,7 +187,8 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
       <div id="pdf-title-header"></div>
       <div style="font-size:11px;color:#999;margin-top:2px" id="product-count-label"></div>
       <div id="sort-buttons" style="display:none;margin-top:8px;gap:8px">
-        <button class="sort-btn active" onclick="sortProducts('alpha')" id="sort-alpha">Alfabético</button>
+        <button class="sort-btn active" onclick="sortProducts('family')" id="sort-family">Por Familia</button>
+        <button class="sort-btn" onclick="sortProducts('alpha')" id="sort-alpha">Alfabético</button>
         <button class="sort-btn" onclick="sortProducts('subfamily')" id="sort-subfamily">Por Subfamilia</button>
       </div>
     </div>
@@ -485,7 +486,7 @@ function openFamilyCatalog(familyName){
   sortProducts('alpha');
 }
 
-let currentSort='alpha';
+let currentSort='family'; // Por defecto ordenar por familia
 function sortProducts(mode){
   currentSort=mode;
   document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
@@ -494,6 +495,14 @@ function sortProducts(mode){
   let sorted=[...filteredProducts];
   if(mode==='alpha'){
     sorted.sort((a,b)=>(a.Name||'').localeCompare(b.Name||''));
+  }else if(mode==='family'){
+    // Ordenar por familia (Parent_category) y luego alfabéticamente
+    sorted.sort((a,b)=>{
+      const famA=a.Parent_category||'';
+      const famB=b.Parent_category||'';
+      if(famA===famB)return(a.Name||'').localeCompare(b.Name||'');
+      return famA.localeCompare(famB);
+    });
   }else if(mode==='subfamily'){
     sorted.sort((a,b)=>{
       const catA=a.Category||'';
@@ -835,7 +844,7 @@ function renderCatalogProducts(products){
           <div class="stock-corner ${stockClass}">${stockDisplay}</div>
         </div>
         <div class="pdf-product-info">
-          <div class="pdf-product-code">${cleanProductCode(p.Default_code)||''}</div>
+          <div class="pdf-product-code">${cleanProductCode(p.Default_code, p.Name)||''}</div>
           <div class="pdf-product-category">${p.Category||p.Parent_category||''}</div>
           <div class="pdf-product-price">${price} <span>+ IVA</span></div>
           ${featuresHtml}
@@ -952,13 +961,43 @@ function cleanProductName(name,parent,code){
   return clean||name;
 }
 
-function cleanProductCode(code){
-  if(!code)return'';
-  // Quitar prefijos repetidos como CA-CA-, RE-RE-, etc.
-  // Patrón: XX-XX- donde XX es cualquier combinación de 2-3 letras
-  let clean=code.replace(/^([A-Z]{2,3})-\1-/,'$1-');
-  // Si todavía queda algo repetido, intentar de nuevo
-  clean=clean.replace(/^([A-Z]{2,3})-\1-/,'$1-');
+function cleanProductCode(code, productName){
+  if(!code) return '';
+  
+  // Si tenemos el nombre del producto, extraer el código de ahí
+  if(productName){
+    // Buscar patrones de código en el nombre
+    // Ejemplo: "RELOJ CASIO MTP-VD01D-1EV" → extraer "MTP-VD01D-1EV"
+    // Ejemplo: "CALCULADORA CASIO LC-401" → extraer "LC-401"
+    // Ejemplo: "PILA MAXELL LITIO CR1216" → extraer "CR1216"
+    
+    const patterns = [
+      // Patrón 1: Letras-Números-Letras (MTP-VD01D-1EV, LC-401, KK-7800-12)
+      /([A-Z]{2,4}-[A-Z0-9-]+)/g,
+      // Patrón 2: ZP seguido de números (ZP49844ZL)
+      /(ZP[0-9A-Z]+)/g,
+      // Patrón 3: CR seguido de números (CR1216 - pilas)
+      /(CR[0-9]+)/g,
+      // Patrón 4: Código alfanumérico simple (FX-82, DM-1400)
+      /([A-Z]{2,3}-[0-9A-Z]+)/g
+    ];
+    
+    for(const pattern of patterns){
+      const matches = productName.match(pattern);
+      if(matches && matches.length > 0){
+        // Tomar el último match (suele ser el código correcto)
+        return matches[matches.length - 1];
+      }
+    }
+  }
+  
+  // Si no encontramos nada en el nombre, limpiar el código original
+  // Quitar prefijos tipo CS-, CA-, RE-, etc
+  let clean = code.replace(/^[A-Z]{2,3}-/, '');
+  
+  // Quitar repeticiones tipo CA-CA-
+  clean = clean.replace(/^([A-Z]{2,3})-\1-/, '$1-');
+  
   return clean;
 }
 
@@ -1143,7 +1182,7 @@ async function generatePDF(catName, products) {
     pdf.setFontSize(7.5);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 0, 0);
-    const code = cleanProductCode(p.Default_code) || '';
+    const code = cleanProductCode(p.Default_code, p.Name) || '';
     pdf.text(code, x + cellWidth/2, y + imgHeight + 3, {align: 'center'});
     
     // CATEGORÍA (en lugar de nombre largo)
