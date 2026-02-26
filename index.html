@@ -1066,12 +1066,12 @@ async function generatePDF(catName, products) {
   showToast('Generando PDF...');
 
   // ── Layout ────────────────────────────────────────────────────────
-  const cols = 4, rows = 3, perPage = 12;
+  const cols = 4, rows = 4, perPage = 16;
   const footerH = 5;
   const gapX = 0, gapY = 0;
   const cellW = (pageW - mg*2) / cols;
-  const cellH = 58; // imgAreaH(42) + texto(~6) + gap entre filas(10)
-  const imgAreaH = 42; // alto fijo en mm — independiente de cellH
+  const cellH = 58;
+  const imgAreaH = 42;
 
   // ── HEADER como imagen ────────────────────────────────────────────
   function drawHeader() {
@@ -1093,23 +1093,44 @@ async function generatePDF(catName, products) {
     const fy = pageH - mg - footerH;
     pdf.setDrawColor(200,200,200); pdf.setLineWidth(0.15);
     pdf.line(mg, fy, pageW-mg, fy);
-    pdf.setFontSize(6); pdf.setFont('helvetica','normal'); pdf.setTextColor(160,160,160);
-    const hoy = new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
-    pdf.text(`Precios sin IVA  ·  ${hoy}`, pageW/2, fy+3.5, {align:'center'});
+    pdf.setFontSize(8); pdf.setFont('helvetica','normal'); pdf.setTextColor(130,130,130);
+    const ahora = new Date();
+    const fecha = ahora.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const hora  = ahora.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+    pdf.text(`Precios sin IVA  ·  ${fecha}  ${hora}`, pageW/2, fy+3.8, {align:'center'});
   }
 
-  // ── PRODUCTOS ─────────────────────────────────────────────────────
-  for (const [idx, p] of products.entries()) {
-    if (idx % perPage === 0) {
-      if (idx > 0) { drawFooter(); pdf.addPage(); }
-      drawHeader();
-    }
+  // ── PRODUCTOS — ordenar por subfamilia luego alfabético ───────────
+  const sorted = [...products].sort((a,b)=>{
+    const catA = (a.Category||'').trim();
+    const catB = (b.Category||'').trim();
+    if(catA !== catB) return catA.localeCompare(catB,'es');
+    const codeA = cleanProductCode(a.Default_code, a.Name)||'';
+    const codeB = cleanProductCode(b.Default_code, b.Name)||'';
+    return codeA.localeCompare(codeB,'es');
+  });
 
-    const pos = idx % perPage;
-    const col = pos % cols;
-    const row = Math.floor(pos / cols);
+  let pageIdx = 0;      // posición dentro de la página actual
+  let currentSubfamily = null;
+
+  for (const p of sorted) {
+    const subfamily = (p.Category||'').trim();
+    const subfamilyChanged = currentSubfamily !== null && subfamily !== currentSubfamily;
+
+    // Salto de página: inicio, llena página, o cambio de subfamilia
+    if (pageIdx === 0 || pageIdx >= perPage || subfamilyChanged) {
+      if (pageIdx > 0) { drawFooter(); pdf.addPage(); }
+      drawHeader();
+      pageIdx = 0;
+    }
+    currentSubfamily = subfamily;
+    const col = pageIdx % cols;
+    const row = Math.floor(pageIdx / cols);
     const x   = mg + col * cellW;
-    const y   = 3 + headerH + row * cellH;
+    const totalH = rows * cellH;
+    const available = pageH - mg*2 - headerH - footerH;
+    const vOffset = (available - totalH) / 2; // centrado vertical
+    const y   = 3 + headerH + vOffset + row * cellH;
 
     // Reset estado limpio
     pdf.setDrawColor(255,255,255); pdf.setFillColor(255,255,255); pdf.setLineWidth(0.1);
@@ -1172,6 +1193,7 @@ async function generatePDF(catName, products) {
           pdf.text(l, x+cellW/2, infoY+7+li*3.2, {align:'center'}));
       }
     }
+    pageIdx++;
   }
 
   drawFooter();
