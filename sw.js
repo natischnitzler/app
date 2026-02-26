@@ -1,7 +1,7 @@
-const CACHE_VERSION = 'v3-images';
-const CACHE_STATIC = 'temponovo-static-v3';
-const CACHE_IMAGES = 'temponovo-images-v3';
-const CACHE_API = 'temponovo-api-v3';
+const CACHE_VERSION = 'v4-images';
+const CACHE_STATIC = 'temponovo-static-v4';
+const CACHE_IMAGES = 'temponovo-images-v4';
+const CACHE_API = 'temponovo-api-v4';
 
 // Archivos estáticos para cachear
 const STATIC_FILES = [
