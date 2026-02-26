@@ -813,17 +813,19 @@ function openCatalog(n){
   selectedProducts.clear();
   filteredProducts=currentCatalog.products;
   document.getElementById('pdf-title-header').textContent=currentCatalog.name;
-  document.getElementById('sort-buttons').style.display='none';
+  document.getElementById('sort-buttons').style.display='flex'; // Mostrar botones
   document.getElementById('search-btn').style.display='none';
   document.getElementById('search-bar').style.display='none';
   updateProductCount();
   renderFilters();
   updateFilterCount();
   
-  // Aplicar orden por subfamilia automáticamente
-  sortProducts('subfamily');
-  
   showScreen('pdf-viewer');
+  
+  // Aplicar orden por subfamilia después de que el DOM esté listo
+  setTimeout(() => {
+    sortProducts('subfamily');
+  }, 100);
 }
 
 function renderCatalogProducts(products){
