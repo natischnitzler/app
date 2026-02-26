@@ -521,17 +521,24 @@ function sortProducts(mode){
     });
   }else if(mode==='subfamily'){
     sorted.sort((a,b)=>{
-      const catA=a.Category||'';
-      const catB=b.Category||'';
+      // Extraer solo la subfamilia (última parte después del /)
+      const getSubfam = (cat) => {
+        if(!cat) return '';
+        const parts = cat.split('/');
+        return parts[parts.length - 1].trim();
+      };
       
-      // Si misma categoría, ordenar por código (no por nombre)
-      if(catA===catB){
+      const subfamA = getSubfam(a.Category);
+      const subfamB = getSubfam(b.Category);
+      
+      // Si misma subfamilia, ordenar por código
+      if(subfamA===subfamB){
         const codeA = cleanProductCode(a.Default_code, a.Name)||'';
         const codeB = cleanProductCode(b.Default_code, b.Name)||'';
         return codeA.localeCompare(codeB);
       }
       
-      return catA.localeCompare(catB);
+      return subfamA.localeCompare(subfamB);
     });
   }
   renderCatalogProducts(sorted);
