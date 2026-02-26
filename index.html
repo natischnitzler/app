@@ -827,12 +827,10 @@ function openCatalog(n){
   renderFilters();
   updateFilterCount();
   
-  showScreen('pdf-viewer');
+  // Aplicar orden por subfamilia automáticamente
+  sortProducts('subfamily');
   
-  // Aplicar orden por subfamilia después de que el DOM esté listo
-  setTimeout(() => {
-    sortProducts('subfamily');
-  }, 100);
+  showScreen('pdf-viewer');
 }
 
 function renderCatalogProducts(products){
