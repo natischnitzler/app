@@ -1070,8 +1070,8 @@ async function generatePDF(catName, products) {
   const footerH = 5;
   const gapX = 0, gapY = 0;
   const cellW = (pageW - mg*2) / cols;
-  const cellH = (pageH - mg*2 - headerH - footerH) / rows;
-  const imgAreaH = cellH * 0.90;
+  const cellH = 58; // imgAreaH(42) + texto(~6) + gap entre filas(10)
+  const imgAreaH = 42; // alto fijo en mm — independiente de cellH
 
   // ── HEADER como imagen ────────────────────────────────────────────
   function drawHeader() {
@@ -1126,16 +1126,14 @@ async function generatePDF(catName, products) {
         img.onerror = () => res({w:1, h:1});
         img.src = `data:image/${mime==='PNG'?'png':'jpeg'};base64,${b64}`;
       });
-      // Alto fijo para todas — ancho proporcional — centrado en el área
-      const fixedH = imgAreaH - 4;
-      const fixedW = fixedH * (dims.w / dims.h);
-      const maxW = cellW - 4;
-      const scale = fixedW > maxW ? maxW / fixedW : 1;
-      const rw = fixedW * scale;
-      const rh = fixedH * scale;
-      // Centrado horizontal Y vertical dentro del área
-      const ix = x + (cellW - rw) / 2;
-      const iy = y + (imgAreaH - rh) / 2;
+      // Alto SIEMPRE fijo — ancho proporcional — clip si se pasa
+      const rh = imgAreaH - 2;               // alto fijo igual para todas
+      const rw = rh * (dims.w / dims.h);     // ancho proporcional, sin tocar
+      const ix = x + (cellW - rw) / 2;       // centrado horizontal
+      const iy = y;                           // desde arriba
+      // Clip a la celda para que no invada columnas vecinas
+      pdf.saveGraphicsState();
+      pdf.rect(x, y, cellW, imgAreaH).clip().discardPath();
       try {
         pdf.addImage(`data:image/${mime==='PNG'?'png':'jpeg'};base64,${b64}`,
           mime, ix, iy, rw, rh, p.Default_code, 'FAST');
@@ -1144,9 +1142,10 @@ async function generatePDF(catName, products) {
         try { pdf.addImage(`data:image/${alt.toLowerCase()};base64,${b64}`,
           alt, ix, iy, rw, rh, p.Default_code+'b', 'FAST'); } catch(e2){}
       }
+      pdf.restoreGraphicsState();
     }
 
-    // Texto fijo justo bajo el área de imagen — 1.5mm de respiro
+    // Texto pegado a la foto
     const infoY = y + imgAreaH + 1.5;
     pdf.setFontSize(9); pdf.setFont('helvetica','bold');
     pdf.setTextColor(0,0,0);
@@ -1155,7 +1154,7 @@ async function generatePDF(catName, products) {
     // ── Precio ──
     pdf.setFontSize(8.5); pdf.setFont('helvetica','normal');
     pdf.setTextColor(0,0,0);
-    pdf.text(`$${formatPriceNum(p.Price||0)} + IVA`, x+cellW/2, infoY+3.8, {align:'center'});
+    pdf.text(`$${formatPriceNum(p.Price||0)} + IVA`, x+cellW/2, infoY+3.5, {align:'center'});
 
     // ── Características ──
     const caract = caracteristicas[p.Default_code];
@@ -1166,11 +1165,11 @@ async function generatePDF(catName, products) {
       if (caract.resistencia_agua) specs.push(caract.resistencia_agua);
       if (caract.genero)           specs.push(caract.genero);
       if (specs.length) {
-        pdf.setFontSize(5.5); pdf.setFont('helvetica','normal');
+        pdf.setFontSize(8); pdf.setFont('helvetica','normal');
         pdf.setTextColor(120,120,120);
         const lines = pdf.splitTextToSize(specs.join(' · '), cellW-2);
         lines.slice(0,2).forEach((l,li) =>
-          pdf.text(l, x+cellW/2, infoY+9.5+li*3.2, {align:'center'}));
+          pdf.text(l, x+cellW/2, infoY+7+li*3.2, {align:'center'}));
       }
     }
   }
