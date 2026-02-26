@@ -1042,36 +1042,27 @@ async function generatePDF(catName, products) {
   const pdf        = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
   const pageWidth  = 210;
   const pageHeight = 297;
-  const margin     = 12;
+  const margin     = 10;
   const teal       = [40, 163, 150];
 
-  // ── Cargar logo SVG → canvas → PNG usable en jsPDF ───────────────
+  // ── Logo desde /logo-temponovo.png ───────────────────────────────
   let logoDataUrl = null;
   try {
-    const svgUrl  = 'https://www.temponovo.cl/asset/img/temponovo-logo-color.svg';
-    const svgText = await fetch(svgUrl).then(r => r.text()).catch(() => null);
-    if (svgText) {
-      const blob    = new Blob([svgText], {type:'image/svg+xml'});
-      const objUrl  = URL.createObjectURL(blob);
-      logoDataUrl = await new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          // Renderizar a canvas con alto fijo para buena calidad
-          const H = 80, W = Math.round(img.naturalWidth / img.naturalHeight * H);
-          const canvas = document.createElement('canvas');
-          canvas.width = W; canvas.height = H;
-          canvas.getContext('2d').drawImage(img, 0, 0, W, H);
-          resolve({ dataUrl: canvas.toDataURL('image/png'), w: W, h: H });
-        };
-        img.onerror = () => resolve(null);
-        img.src = objUrl;
-        setTimeout(() => resolve(null), 5000);
-      });
-      URL.revokeObjectURL(objUrl);
-    }
+    logoDataUrl = await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement('canvas');
+        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+        cv.getContext('2d').drawImage(img, 0, 0);
+        resolve({ dataUrl: cv.toDataURL('image/png'), w: img.naturalWidth, h: img.naturalHeight });
+      };
+      img.onerror = () => resolve(null);
+      img.src = '/logo-temponovo.png';
+      setTimeout(() => resolve(null), 4000);
+    });
   } catch(e) { logoDataUrl = null; }
 
-  // ── Cargar imágenes de productos ──────────────────────────────────
+  // ── Imágenes de productos ─────────────────────────────────────────
   showToast(`Cargando ${products.length} imágenes...`);
   const productImages = {};
   const BATCH = 8;
@@ -1086,7 +1077,7 @@ async function generatePDF(catName, products) {
         }
       } catch(e) {}
     }));
-    showToast(`Cargadas ${Math.min(i + BATCH, products.length)}/${products.length} imágenes`);
+    showToast(`Cargadas ${Math.min(i+BATCH, products.length)}/${products.length} imágenes`);
   }
   showToast('Generando PDF...');
 
@@ -1094,117 +1085,148 @@ async function generatePDF(catName, products) {
   const cols    = 4;
   const rows    = 3;
   const perPage = cols * rows;
-  const headerH = 24;
-  const footerH = 10;
-  const gapX    = 4;
-  const gapY    = 5;
-  const cellW   = (pageWidth - margin * 2 - gapX * (cols - 1)) / cols;
-  const cellH   = (pageHeight - margin * 2 - headerH - footerH - gapY * (rows - 1)) / rows;
-  const imgH    = cellH * 0.62;
-  const infoH   = cellH - imgH;
+  const headerH = 22;
+  const footerH = 8;
+  const gapX    = 3;
+  const gapY    = 4;
+  const cellW   = (pageWidth - margin*2 - gapX*(cols-1)) / cols;
+  const cellH   = (pageHeight - margin*2 - headerH - footerH - gapY*(rows-1)) / rows;
+  const imgH    = cellH * 0.63;
 
   // ── HEADER ────────────────────────────────────────────────────────
   function drawHeader() {
-    // Íconos dibujados con formas geométricas (sin emojis)
-    function circle(cx, cy, r) {
+    const r = 2.3; // radio de todos los íconos
+
+    // ── Base: círculo turquesa relleno ──
+    function circleBg(cx, cy) {
       pdf.setFillColor(teal[0], teal[1], teal[2]);
+      pdf.setDrawColor(teal[0], teal[1], teal[2]);
       pdf.circle(cx, cy, r, 'F');
     }
-    function iconWA(cx, cy) {
-      circle(cx, cy, 1.8);
-      pdf.setDrawColor(255,255,255); pdf.setLineWidth(0.45);
-      pdf.line(cx-1, cy-0.6, cx-0.35, cy+0.75);
-      pdf.line(cx-0.35, cy+0.75, cx, cy+0.05);
-      pdf.line(cx, cy+0.05, cx+0.35, cy+0.75);
-      pdf.line(cx+0.35, cy+0.75, cx+1, cy-0.6);
+
+    // ── WhatsApp: círculo + letra W en blanco ──
+    function iconWhatsApp(cx, cy) {
+      circleBg(cx, cy);
+      pdf.setDrawColor(255,255,255);
+      pdf.setLineWidth(0.55);
+      // W con 4 segmentos
+      pdf.line(cx-1.1, cy-0.8, cx-0.6, cy+0.9);
+      pdf.line(cx-0.6, cy+0.9, cx,     cy+0.1);
+      pdf.line(cx,     cy+0.1, cx+0.6, cy+0.9);
+      pdf.line(cx+0.6, cy+0.9, cx+1.1, cy-0.8);
     }
-    function iconMail(cx, cy) {
-      circle(cx, cy, 1.8);
-      pdf.setDrawColor(255,255,255); pdf.setLineWidth(0.4);
-      // Sobre: solo líneas en V (sin rect que puede causar problemas de estado)
-      pdf.line(cx-1.1, cy-0.75, cx+1.1, cy-0.75);
-      pdf.line(cx+1.1, cy-0.75, cx+1.1, cy+0.75);
-      pdf.line(cx+1.1, cy+0.75, cx-1.1, cy+0.75);
-      pdf.line(cx-1.1, cy+0.75, cx-1.1, cy-0.75);
-      pdf.line(cx-1.1, cy-0.75, cx, cy+0.15);
-      pdf.line(cx, cy+0.15, cx+1.1, cy-0.75);
+
+    // ── Email: círculo + sobre con V ──
+    function iconEmail(cx, cy) {
+      circleBg(cx, cy);
+      pdf.setDrawColor(255,255,255);
+      pdf.setLineWidth(0.45);
+      // Cuerpo del sobre (4 lados con líneas)
+      const l=cx-1.2, r2=cx+1.2, t=cy-0.8, b=cy+0.8;
+      pdf.line(l, t, r2, t);  // top
+      pdf.line(r2, t, r2, b); // right
+      pdf.line(r2, b, l,  b); // bottom
+      pdf.line(l,  b, l,  t); // left
+      // V interior (solapa)
+      pdf.line(l, t, cx, cy+0.3);
+      pdf.line(cx, cy+0.3, r2, t);
     }
+
+    // ── Teléfono: círculo + auricular ──
     function iconPhone(cx, cy) {
-      circle(cx, cy, 1.8);
-      pdf.setDrawColor(255,255,255); pdf.setLineWidth(0.5);
-      pdf.circle(cx-0.2, cy-0.2, 0.95, 'S');
-    }
-    function iconPin(cx, cy) {
-      // Cuerpo circular
-      pdf.setFillColor(teal[0], teal[1], teal[2]);
-      pdf.circle(cx, cy-0.4, 1.8, 'F');
-      // Punta
-      pdf.triangle(cx-1.4, cy-0.4, cx+1.4, cy-0.4, cx, cy+1.8, 'F');
-      // Hueco blanco
+      circleBg(cx, cy);
+      pdf.setDrawColor(255,255,255);
+      pdf.setLineWidth(0.5);
+      // Auricular: arco superior + mango
       pdf.setFillColor(255,255,255);
-      pdf.circle(cx, cy-0.5, 0.65, 'F');
+      // Parte superior del auricular (arco)
+      pdf.ellipse(cx, cy-0.3, 1.0, 0.85, 'S');
+      // Oreja izquierda
+      pdf.setLineWidth(0.6);
+      pdf.line(cx-1.0, cy-0.3, cx-1.0, cy+0.5);
+      // Oreja derecha
+      pdf.line(cx+1.0, cy-0.3, cx+1.0, cy+0.5);
+    }
+
+    // ── Pin ubicación: círculo arriba + triángulo abajo + hueco ──
+    function iconPin(cx, cy) {
+      pdf.setFillColor(teal[0], teal[1], teal[2]);
+      pdf.setDrawColor(teal[0], teal[1], teal[2]);
+      // Cuerpo superior (círculo)
+      pdf.circle(cx, cy-0.5, r*0.85, 'F');
+      // Punta inferior (triángulo)
+      pdf.triangle(cx-r*0.85, cy-0.5, cx+r*0.85, cy-0.5, cx, cy+r+0.5, 'F');
+      // Hueco blanco central
+      pdf.setFillColor(255,255,255);
+      pdf.circle(cx, cy-0.5, r*0.35, 'F');
     }
 
     pdf.setFont('helvetica','normal');
-    pdf.setFontSize(7.5);
-    pdf.setTextColor(55,55,55);
+    pdf.setFontSize(8);
+    pdf.setTextColor(50,50,50);
 
-    const r1y = margin + 5.5;
-    const r2y = margin + 14;
-    const tx  = 2.5;  // offset texto desde centro ícono
+    const lx = margin + r;    // centro ícono col izq
+    const rx = margin + 52;   // centro ícono col der
+    const y1 = margin + 6;
+    const y2 = margin + 15;
+    const tx = r + 1.8;       // offset texto desde centro ícono
 
-    // Col izquierda
-    iconWA(margin + 1.8, r1y);
-    pdf.text('+56 9 6292 9654', margin + 1.8 + tx, r1y + 0.8);
-    iconPhone(margin + 1.8, r2y);
-    pdf.text('+56 2 2229 3138', margin + 1.8 + tx, r2y + 0.8);
+    // Fila 1
+    iconWhatsApp(lx, y1);
+    pdf.text('+56 9 6292 9654', lx + tx, y1 + 0.9);
+    iconEmail(rx, y1);
+    pdf.text('ventas@temponovo.cl', rx + tx, y1 + 0.9);
 
-    // Col derecha contacto (a ~55mm)
-    const cx2 = margin + 55;
-    iconMail(cx2, r1y);
-    pdf.text('ventas@temponovo.cl', cx2 + tx, r1y + 0.8);
-    iconPin(cx2, r2y);
-    pdf.text('Las Carmelitas 51, Las Condes.', cx2 + tx, r2y + 0.8);
+    // Fila 2
+    iconPhone(lx, y2);
+    pdf.text('+56 2 2229 3138', lx + tx, y2 + 0.9);
+    iconPin(rx, y2);
+    pdf.text('Las Carmelitas 51, Las Condes.', rx + tx, y2 + 0.9);
 
-    // Logo derecho
+    // Logo
     if (logoDataUrl) {
-      const lH  = 14;
-      const lW  = (logoDataUrl.w / logoDataUrl.h) * lH;
+      const lH = 16;
+      const lW = (logoDataUrl.w / logoDataUrl.h) * lH;
       try {
-        pdf.addImage(logoDataUrl.dataUrl, 'PNG', pageWidth - margin - lW, margin, lW, lH);
-      } catch(e) { drawLogoFallback(); }
+        pdf.addImage(logoDataUrl.dataUrl, 'PNG',
+          pageWidth - margin - lW, margin - 1, lW, lH);
+      } catch(e) { logoFallback(); }
     } else {
-      drawLogoFallback();
+      logoFallback();
     }
 
-    function drawLogoFallback() {
-      const cx = pageWidth - margin - 34, cy = margin + 7;
-      pdf.setDrawColor(teal[0],teal[1],teal[2]); pdf.setLineWidth(1.2);
-      pdf.circle(cx, cy, 4.5, 'S');
-      pdf.setLineWidth(0.6);
-      pdf.line(cx, cy, cx, cy-3); pdf.line(cx, cy, cx+2.2, cy+1);
-      pdf.setFontSize(14); pdf.setFont('helvetica','normal');
-      pdf.setTextColor(110,110,110);
+    function logoFallback() {
+      const cx = pageWidth - margin - 35, cy = margin + 8;
+      pdf.setDrawColor(teal[0],teal[1],teal[2]);
+      pdf.setLineWidth(1.5);
+      pdf.circle(cx, cy, 5, 'S');
+      pdf.setLineWidth(0.7);
+      pdf.line(cx, cy, cx, cy-3.5);
+      pdf.line(cx, cy, cx+2.5, cy+1.2);
+      pdf.setFontSize(13); pdf.setFont('helvetica','normal');
+      pdf.setTextColor(120,120,120);
       pdf.text('TEMPO', cx+7, cy+4);
       pdf.setFont('helvetica','bold');
       pdf.setTextColor(teal[0],teal[1],teal[2]);
-      const tw = pdf.getStringUnitWidth('TEMPO') * 14 / pdf.internal.scaleFactor;
+      const tw = pdf.getStringUnitWidth('TEMPO') * 13 / pdf.internal.scaleFactor;
       pdf.text('NOVO', cx+7+tw, cy+4);
     }
 
-    // Separador
-    pdf.setDrawColor(210,210,210); pdf.setLineWidth(0.25);
-    pdf.line(margin, margin + headerH, pageWidth - margin, margin + headerH);
+    // Línea separadora
+    pdf.setDrawColor(200,200,200);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, margin+headerH, pageWidth-margin, margin+headerH);
   }
 
   // ── FOOTER ────────────────────────────────────────────────────────
   function drawFooter() {
     const fy = pageHeight - margin - footerH;
-    pdf.setDrawColor(210,210,210); pdf.setLineWidth(0.2);
-    pdf.line(margin, fy, pageWidth - margin, fy);
+    pdf.setDrawColor(200,200,200); pdf.setLineWidth(0.2);
+    pdf.line(margin, fy, pageWidth-margin, fy);
     pdf.setFontSize(7); pdf.setFont('helvetica','normal');
     pdf.setTextColor(160,160,160);
-    const today = new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const today = new Date().toLocaleDateString('es-CL',
+      {day:'2-digit',month:'2-digit',year:'numeric'});
     pdf.text(`Precios sin IVA  ·  ${today}`, pageWidth/2, fy+5, {align:'center'});
   }
 
@@ -1221,7 +1243,7 @@ async function generatePDF(catName, products) {
     const x   = margin + col * (cellW + gapX);
     const y   = margin + headerH + 2 + row * (cellH + gapY);
 
-    // Reset estado de dibujo limpio para cada producto
+    // Reset estado limpio
     pdf.setDrawColor(255,255,255);
     pdf.setFillColor(255,255,255);
     pdf.setLineWidth(0.1);
@@ -1229,59 +1251,62 @@ async function generatePDF(catName, products) {
     // ── Imagen ──
     const b64 = productImages[p.Default_code];
     if (b64) {
-      // Detectar tipo real de imagen
+      // Detectar PNG vs JPEG por header del base64
       let mime = 'JPEG';
       try {
-        const header = atob(b64.substring(0, 8));
-        if (header.charCodeAt(0) === 0x89) mime = 'PNG';
+        const bytes = atob(b64.substring(0, 16));
+        if (bytes.charCodeAt(0) === 0x89) mime = 'PNG';  // PNG magic: \x89PNG
       } catch(e) {}
 
-      // Obtener dimensiones reales cargando la imagen
+      // Esperar que cargue para obtener dimensiones reales
       const dims = await new Promise((resolve) => {
         const img = new Image();
-        img.onload = () => resolve({w: img.naturalWidth, h: img.naturalHeight});
+        img.onload  = () => resolve({w: img.naturalWidth,  h: img.naturalHeight});
         img.onerror = () => resolve({w: 1, h: 1});
-        img.src = `data:image/${mime === 'PNG' ? 'png' : 'jpeg'};base64,${b64}`;
+        img.src = `data:image/${mime==='PNG'?'png':'jpeg'};base64,${b64}`;
       });
 
-      const pad = 3;
-      const maxW = cellW - pad * 2;
-      const maxH = imgH - pad * 2;
-      const imgRatio  = dims.w / dims.h;
-      const contRatio = maxW / maxH;
+      // Calcular tamaño manteniendo proporción, centrado
+      const pad  = 2;
+      const maxW = cellW - pad*2;
+      const maxH = imgH  - pad*2;
+      const ir   = dims.w / dims.h;
+      const cr   = maxW  / maxH;
       let fw, fh;
-      if (imgRatio > contRatio) { fw = maxW; fh = maxW / imgRatio; }
-      else                       { fh = maxH; fw = maxH * imgRatio; }
+      if (ir > cr) { fw = maxW; fh = maxW / ir; }
+      else         { fh = maxH; fw = maxH * ir; }
       const ix = x + pad + (maxW - fw) / 2;
       const iy = y + pad + (maxH - fh) / 2;
 
       try {
-        pdf.addImage(`data:image/${mime === 'PNG' ? 'png' : 'jpeg'};base64,${b64}`,
-          mime, ix, iy, fw, fh, undefined, 'FAST');
+        pdf.addImage(
+          `data:image/${mime==='PNG'?'png':'jpeg'};base64,${b64}`,
+          mime, ix, iy, fw, fh, p.Default_code, 'FAST'
+        );
       } catch(e) {
-        // Intentar con el otro formato si falla
+        // Si falla, intentar el otro formato
+        const alt = mime === 'PNG' ? 'JPEG' : 'PNG';
         try {
-          const alt = mime === 'PNG' ? 'JPEG' : 'PNG';
-          pdf.addImage(`data:image/${alt.toLowerCase()};base64,${b64}`,
-            alt, ix, iy, fw, fh, undefined, 'FAST');
-        } catch(e2) { console.log('Error imagen', p.Default_code); }
+          pdf.addImage(
+            `data:image/${alt.toLowerCase()};base64,${b64}`,
+            alt, ix, iy, fw, fh, p.Default_code+'_alt', 'FAST'
+          );
+        } catch(e2) {}
       }
     }
 
-    // Línea separadora imagen/texto
-    pdf.setDrawColor(235,235,235); pdf.setLineWidth(0.2);
-    pdf.line(x, y + imgH, x + cellW, y + imgH);
-
     // ── Código ──
-    const infoY = y + imgH;
-    pdf.setFontSize(7); pdf.setFont('helvetica','bold');
+    const infoY = y + imgH + 2;
+    pdf.setFontSize(7.5);
+    pdf.setFont('helvetica','bold');
     pdf.setTextColor(0,0,0);
-    pdf.text(cleanProductCode(p.Default_code, p.Name) || '', x + cellW/2, infoY + 4.5, {align:'center'});
+    pdf.text(cleanProductCode(p.Default_code, p.Name) || '', x + cellW/2, infoY + 3, {align:'center'});
 
-    // ── Precio ──
-    pdf.setFontSize(7); pdf.setFont('helvetica','bold');
-    pdf.setTextColor(teal[0], teal[1], teal[2]);
-    pdf.text(`$${formatPriceNum(p.Price||0)} + IVA`, x + cellW/2, infoY + 9.5, {align:'center'});
+    // ── Precio (negro, igual a la app) ──
+    pdf.setFontSize(7);
+    pdf.setFont('helvetica','normal');
+    pdf.setTextColor(0,0,0);
+    pdf.text(`${formatPriceNum(p.Price||0)} + IVA`, x + cellW/2, infoY + 8, {align:'center'});
 
     // ── Características ──
     const caract = caracteristicas[p.Default_code];
@@ -1292,20 +1317,19 @@ async function generatePDF(catName, products) {
       if (caract.color)            specs.push(caract.color);
       if (caract.genero)           specs.push(caract.genero);
       if (specs.length > 0) {
-        pdf.setFontSize(5.5); pdf.setFont('helvetica','normal');
-        pdf.setTextColor(90,90,90);
-        const txt = pdf.splitTextToSize(specs.join(' · '), cellW - 2);
-        txt.slice(0,2).forEach((line, li) => {
-          pdf.text(line, x + cellW/2, infoY + 14 + li * 4, {align:'center'});
+        pdf.setFontSize(5.5);
+        pdf.setFont('helvetica','normal');
+        pdf.setTextColor(100,100,100);
+        const lines = pdf.splitTextToSize(specs.join(' · '), cellW - 2);
+        lines.slice(0,2).forEach((line, li) => {
+          pdf.text(line, x + cellW/2, infoY + 13 + li*4, {align:'center'});
         });
       }
     }
   }
 
   drawFooter();
-
-  const filename = `${catName.replace(/[^a-z0-9áéíóúñ]/gi,'_')}.pdf`;
-  pdf.save(filename);
+  pdf.save(`${catName.replace(/[^a-z0-9áéíóúñ]/gi,'_')}.pdf`);
   showToast(`✓ PDF listo: ${Object.keys(productImages).length}/${products.length} con foto`);
 }
 async function shareCatalogPDF(){
