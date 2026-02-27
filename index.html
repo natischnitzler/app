@@ -1249,10 +1249,22 @@ async function generatePDF(catName, products) {
     const caract = caracteristicas[p.Default_code];
     if (caract) {
       const specs = [];
-      if (caract.color)            specs.push(caract.color);
-      if (caract.tamano_esfera)    specs.push(`Esfera ${caract.tamano_esfera} mm`);
-      if (caract.resistencia_agua) specs.push(caract.resistencia_agua);
+      
+      // Para relojes
       if (caract.genero)           specs.push(caract.genero);
+      if (caract.tamano_esfera)    specs.push(`${caract.tamano_esfera}mm`);
+      if (caract.resistencia_agua) specs.push(caract.resistencia_agua);
+      
+      // Para calculadoras
+      if (caract.tamano_calculadora) specs.push(caract.tamano_calculadora);
+      if (caract.digitos)            specs.push(`${caract.digitos} Dígitos`);
+      
+      // Para otros
+      if (caract.tamano_otro)        specs.push(caract.tamano_otro);
+      
+      // Color (común)
+      if (caract.color)              specs.push(caract.color);
+      
       if (specs.length) {
         pdf.setFontSize(8); pdf.setFont('helvetica','normal');
         pdf.setTextColor(120,120,120);
