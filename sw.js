@@ -1,7 +1,7 @@
-const CACHE_VERSION = 'v4-images';
-const CACHE_STATIC = 'temponovo-static-v4';
-const CACHE_IMAGES = 'temponovo-images-v4';
-const CACHE_API = 'temponovo-api-v4';
+const CACHE_VERSION = 'v4.0'; // Incrementar este número cuando haya actualizaciones
+const CACHE_STATIC = `temponovo-static-${CACHE_VERSION}`;
+const CACHE_IMAGES = `temponovo-images-${CACHE_VERSION}`;
+const CACHE_API = `temponovo-api-${CACHE_VERSION}`;
 
 // Archivos estáticos para cachear
 const STATIC_FILES = [
@@ -15,29 +15,39 @@ const STATIC_FILES = [
 
 // Instalación del SW
 self.addEventListener('install', event => {
-  console.log('SW: Instalando...');
+  console.log(`SW: Instalando versión ${CACHE_VERSION}...`);
   event.waitUntil(
     caches.open(CACHE_STATIC).then(cache => {
       console.log('SW: Cacheando archivos estáticos');
       return cache.addAll(STATIC_FILES.map(url => new Request(url, {cache: 'reload'})));
     })
   );
-  self.skipWaiting();
+  self.skipWaiting(); // Activar inmediatamente
 });
 
 // Activación del SW - limpiar caches viejos
 self.addEventListener('activate', event => {
-  console.log('SW: Activando...');
+  console.log(`SW: Activando versión ${CACHE_VERSION}...`);
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (![CACHE_STATIC, CACHE_IMAGES, CACHE_API].includes(cacheName)) {
+          if (!cacheName.includes(CACHE_VERSION)) {
             console.log('SW: Eliminando cache viejo:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      // Notificar a todos los clientes que hay nueva versión
+      self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'UPDATE_AVAILABLE',
+            version: CACHE_VERSION
+          });
+        });
+      });
     })
   );
   self.clients.claim();
@@ -53,20 +63,15 @@ self.addEventListener('fetch', event => {
       caches.open(CACHE_IMAGES).then(cache => {
         return cache.match(event.request).then(cached => {
           if (cached) {
-            console.log('SW: Imagen desde cache:', url.pathname);
             return cached;
           }
           
-          // Si no está en cache, traer de red y guardar
           return fetch(event.request).then(response => {
             if (response && response.status === 200) {
-              console.log('SW: Guardando imagen en cache:', url.pathname);
               cache.put(event.request, response.clone());
             }
             return response;
-          }).catch(err => {
-            console.log('SW: Error cargando imagen:', url.pathname);
-            // Devolver imagen placeholder o vacía
+          }).catch(() => {
             return new Response(JSON.stringify({error: 'Imagen no disponible offline'}), {
               headers: {'Content-Type': 'application/json'}
             });
@@ -83,13 +88,11 @@ self.addEventListener('fetch', event => {
       fetch(event.request).then(response => {
         if (response && response.status === 200) {
           caches.open(CACHE_API).then(cache => {
-            console.log('SW: Actualizando cache de productos');
             cache.put(event.request, response.clone());
           });
         }
         return response;
-      }).catch(err => {
-        console.log('SW: Sin conexión, usando cache de productos');
+      }).catch(() => {
         return caches.match(event.request).then(cached => {
           if (cached) return cached;
           return new Response(JSON.stringify([]), {
@@ -111,7 +114,7 @@ self.addEventListener('fetch', event => {
           });
         }
         return response;
-      }).catch(err => {
+      }).catch(() => {
         return caches.match(event.request).then(cached => {
           if (cached) return cached;
           return new Response(JSON.stringify({}), {
@@ -146,7 +149,6 @@ self.addEventListener('message', event => {
     console.log(`SW: Pre-cacheando ${imageUrls.length} imágenes...`);
     
     caches.open(CACHE_IMAGES).then(cache => {
-      // Cachear de a 5 imágenes a la vez
       const BATCH_SIZE = 5;
       let processed = 0;
       
@@ -164,7 +166,6 @@ self.addEventListener('message', event => {
                 if (response && response.status === 200) {
                   cache.put(url, response.clone());
                   processed++;
-                  // Notificar progreso
                   self.clients.matchAll().then(clients => {
                     clients.forEach(client => {
                       client.postMessage({
@@ -180,11 +181,15 @@ self.addEventListener('message', event => {
           )
         );
         
-        // Procesar siguiente lote
         await processBatch(start + BATCH_SIZE);
       }
       
       processBatch(0);
     });
+  }
+  
+  // Comando para forzar actualización
+  if (event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 });

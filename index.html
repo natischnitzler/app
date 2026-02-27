@@ -132,6 +132,15 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
 .spinner{width:40px;height:40px;border:3px solid #f0f0f0;border-top-color:#2c3e50;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* Update Banner */
+.update-banner{position:fixed;top:0;left:0;right:0;background:#4caf50;color:white;padding:16px 20px;display:none;align-items:center;justify-content:space-between;z-index:10000;box-shadow:0 2px 10px rgba(0,0,0,0.2)}
+.update-banner.show{display:flex}
+.update-banner-text{flex:1;font-size:14px;font-weight:500}
+.update-banner-btn{background:white;color:#4caf50;border:none;padding:8px 20px;border-radius:6px;font-weight:600;cursor:pointer;margin-left:10px}
+.update-banner-btn:hover{opacity:0.9}
+.update-banner-close{background:none;border:none;color:white;font-size:24px;cursor:pointer;padding:0 10px;opacity:0.8}
+.update-banner-close:hover{opacity:1}
+
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#323232;color:white;padding:12px 24px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:9999}
 .toast.show{opacity:1}
 
@@ -140,6 +149,15 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
 </style>
 </head>
 <body>
+
+<!-- Banner de Actualización -->
+<div id="update-banner" class="update-banner">
+  <div class="update-banner-text">
+    🔄 Nueva versión disponible
+  </div>
+  <button class="update-banner-btn" onclick="applyUpdate()">Actualizar Ahora</button>
+  <button class="update-banner-close" onclick="dismissUpdate()">×</button>
+</div>
 
 <div id="home" class="screen active">
   <div class="header">
@@ -858,10 +876,22 @@ function renderCatalogProducts(products){
     let featuresHtml='';
     if(caract){
       const features=[];
+      
+      // Para relojes
       if(caract.genero)features.push(caract.genero);
-      if(caract.color)features.push(caract.color);
       if(caract.tamano_esfera)features.push(`${caract.tamano_esfera}mm`);
       if(caract.resistencia_agua)features.push(caract.resistencia_agua);
+      
+      // Para calculadoras
+      if(caract.tamano_calculadora)features.push(caract.tamano_calculadora);
+      if(caract.digitos)features.push(`${caract.digitos} Dígitos`);
+      
+      // Para otros
+      if(caract.tamano_otro)features.push(caract.tamano_otro);
+      
+      // Color (común para todos)
+      if(caract.color)features.push(caract.color);
+      
       if(features.length>0){
         featuresHtml=`<div class="product-features">${features.join(' • ')}</div>`;
       }
@@ -1511,7 +1541,25 @@ async function init() {
           const {processed, total} = event.data;
           showLoadingScreen('Descargando imágenes...', {current: processed, total});
         }
+        
+        // Detectar actualización disponible
+        if (event.data.type === 'UPDATE_AVAILABLE') {
+          console.log('🔄 Nueva versión disponible:', event.data.version);
+          document.getElementById('update-banner').classList.add('show');
+        }
       });
+      
+      // Detectar cuando hay un nuevo SW esperando
+      swRegistration.addEventListener('updatefound', () => {
+        const newWorker = swRegistration.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('🔄 Nueva versión lista');
+            document.getElementById('update-banner').classList.add('show');
+          }
+        });
+      });
+      
     } catch (err) {
       console.error('❌ Service Worker error:', err);
     }
@@ -1610,6 +1658,18 @@ async function init() {
 }
 
 init();
+
+// Funciones para manejar actualización
+function applyUpdate() {
+  // Recargar página para aplicar actualización
+  window.location.reload();
+}
+
+function dismissUpdate() {
+  // Ocultar banner
+  document.getElementById('update-banner').classList.remove('show');
+}
+
 </script>
 </body>
 </html>
