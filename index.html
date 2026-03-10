@@ -356,7 +356,7 @@ async function fetchProducts(){
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
     if(!Array.isArray(data))throw new Error('Invalid response');
-    const inStock=data.filter(p=>(p.Stock||0)>0);
+    const inStock=data.filter(p=>(p.Stock||0)>0||(p.Incoming||0)>0);
     await saveProducts(inStock);
     allProducts=inStock;
     setSyncStatus('Actualizado');
