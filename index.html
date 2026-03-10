@@ -875,7 +875,7 @@ function renderCatalogProducts(products){
     if(stock<10)stockClass='low';
     else if(stock<15)stockClass='medium';
     const incomingDisplay=incoming>100?'100+':incoming;
-    const incomingBadge=incoming>0?`<div class="incoming-corner" title="En tránsito (llega en 30 días)">${incomingDisplay}</div>`:'';
+    const incomingBadge=(incoming>0&&(p.Stock||0)===0)?`<div class="incoming-corner" title="Próximamente en stock">${incomingDisplay}</div>`:'';
     const imgTag=p.Default_code?`<img data-code="${p.Default_code}" class="lazy-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="${p.Name}" loading="lazy">`:'';
     const caract=caracteristicas[p.Default_code];
     let featuresHtml='';
@@ -1244,7 +1244,7 @@ async function generatePDF(catName, products) {
     const infoY = y + imgAreaH + 1.5;
     pdf.setFontSize(9); pdf.setFont('helvetica','bold');
     pdf.setTextColor(0,0,0);
-    pdf.text((cleanProductCode(p.Default_code, p.Name)||'') + (p.Incoming > 0 ? ' *' : ''), x+cellW/2, infoY, {align:'center'});
+    pdf.text((cleanProductCode(p.Default_code, p.Name)||'') + (p.Incoming > 0 && (p.Stock||0) === 0 ? ' *' : ''), x+cellW/2, infoY, {align:'center'});
 
     // ── Precio ──
     pdf.setFontSize(8.5); pdf.setFont('helvetica','normal');
