@@ -1123,7 +1123,7 @@ async function generatePDF(catName, products) {
 
   // ── Layout ────────────────────────────────────────────────────────
   const cols = 4, rows = 4, perPage = 16;
-  const footerH = 5;
+  const footerH = 10;
   const hasIncoming = products.some(p => (p.Incoming||0) > 0 && (p.Stock||0) === 0);
   const gapX = 0, gapY = 0;
   const cellW = (pageW - mg*2) / cols;
@@ -1174,8 +1174,8 @@ async function generatePDF(catName, products) {
     const hora  = ahora.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
     pdf.text(`Precios sin IVA  ·  ${fecha}  ${hora}`, pageW/2, fy+3.8, {align:'center'});
     if (hasIncoming) {
-      pdf.setFontSize(7); pdf.setFont('helvetica','italic'); pdf.setTextColor(150,150,150);
-      pdf.text('* Productos no disponibles para despacho inmediato', pageW/2, fy+7.5, {align:'center'});
+      pdf.setFontSize(9); pdf.setFont('helvetica','italic'); pdf.setTextColor(100,100,100);
+      pdf.text('* Productos no disponibles para despacho inmediato', pageW/2, fy+8, {align:'center'});
     }
   }
 
@@ -1237,21 +1237,26 @@ async function generatePDF(catName, products) {
       let imgMime = mime;
       if ((p.Stock||0) === 0 && (p.Incoming||0) > 0) {
         try {
-          const tmpCanvas = document.createElement('canvas');
-          const tmpImg = new Image();
-          await new Promise(res => { tmpImg.onload = res; tmpImg.src = `data:image/${mime==='PNG'?'png':'jpeg'};base64,${b64}`; });
-          tmpCanvas.width = tmpImg.naturalWidth;
-          tmpCanvas.height = tmpImg.naturalHeight;
-          const tmpCtx = tmpCanvas.getContext('2d');
-          tmpCtx.drawImage(tmpImg, 0, 0);
-          const imgDataObj = tmpCtx.getImageData(0, 0, tmpCanvas.width, tmpCanvas.height);
-          for (let i = 0; i < imgDataObj.data.length; i += 4) {
-            const gray = imgDataObj.data[i]*0.299 + imgDataObj.data[i+1]*0.587 + imgDataObj.data[i+2]*0.114;
-            imgDataObj.data[i] = imgDataObj.data[i+1] = imgDataObj.data[i+2] = gray;
-          }
-          tmpCtx.putImageData(imgDataObj, 0, 0);
-          imgData = tmpCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
-          imgMime = 'JPEG';
+          const grayB64 = await new Promise((resolve) => {
+            const tmpImg = new Image();
+            tmpImg.onload = () => {
+              const tmpCanvas = document.createElement('canvas');
+              tmpCanvas.width = tmpImg.naturalWidth;
+              tmpCanvas.height = tmpImg.naturalHeight;
+              const tmpCtx = tmpCanvas.getContext('2d');
+              tmpCtx.drawImage(tmpImg, 0, 0);
+              const imgDataObj = tmpCtx.getImageData(0, 0, tmpCanvas.width, tmpCanvas.height);
+              for (let i = 0; i < imgDataObj.data.length; i += 4) {
+                const gray = imgDataObj.data[i]*0.299 + imgDataObj.data[i+1]*0.587 + imgDataObj.data[i+2]*0.114;
+                imgDataObj.data[i] = imgDataObj.data[i+1] = imgDataObj.data[i+2] = gray;
+              }
+              tmpCtx.putImageData(imgDataObj, 0, 0);
+              resolve(tmpCanvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+            };
+            tmpImg.onerror = () => resolve(null);
+            tmpImg.src = `data:image/${mime==='PNG'?'png':'jpeg'};base64,${b64}`;
+          });
+          if (grayB64) { imgData = grayB64; imgMime = 'JPEG'; }
         } catch(eg) { /* si falla, usa imagen original */ }
       }
       pdf.saveGraphicsState();
