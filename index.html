@@ -1124,6 +1124,7 @@ async function generatePDF(catName, products) {
   // ── Layout ────────────────────────────────────────────────────────
   const cols = 4, rows = 4, perPage = 16;
   const footerH = 5;
+  const hasIncoming = products.some(p => (p.Incoming||0) > 0 && (p.Stock||0) === 0);
   const gapX = 0, gapY = 0;
   const cellW = (pageW - mg*2) / cols;
   const cellH = 58;
@@ -1172,6 +1173,10 @@ async function generatePDF(catName, products) {
     const fecha = ahora.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
     const hora  = ahora.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
     pdf.text(`Precios sin IVA  ·  ${fecha}  ${hora}`, pageW/2, fy+3.8, {align:'center'});
+    if (hasIncoming) {
+      pdf.setFontSize(7); pdf.setFont('helvetica','italic'); pdf.setTextColor(150,150,150);
+      pdf.text('* Productos no disponibles para despacho inmediato', pageW/2, fy+7.5, {align:'center'});
+    }
   }
 
   // ── PRODUCTOS — ordenar por subfamilia luego alfabético ───────────
@@ -1227,14 +1232,36 @@ async function generatePDF(catName, products) {
       const ix = x + (cellW - rw) / 2;       // centrado horizontal
       const iy = y;                           // desde arriba
       // Clip a la celda para que no invada columnas vecinas
+      // Convertir a grises si Stock=0 e Incoming>0
+      let imgData = b64;
+      let imgMime = mime;
+      if ((p.Stock||0) === 0 && (p.Incoming||0) > 0) {
+        try {
+          const tmpCanvas = document.createElement('canvas');
+          const tmpImg = new Image();
+          await new Promise(res => { tmpImg.onload = res; tmpImg.src = `data:image/${mime==='PNG'?'png':'jpeg'};base64,${b64}`; });
+          tmpCanvas.width = tmpImg.naturalWidth;
+          tmpCanvas.height = tmpImg.naturalHeight;
+          const tmpCtx = tmpCanvas.getContext('2d');
+          tmpCtx.drawImage(tmpImg, 0, 0);
+          const imgDataObj = tmpCtx.getImageData(0, 0, tmpCanvas.width, tmpCanvas.height);
+          for (let i = 0; i < imgDataObj.data.length; i += 4) {
+            const gray = imgDataObj.data[i]*0.299 + imgDataObj.data[i+1]*0.587 + imgDataObj.data[i+2]*0.114;
+            imgDataObj.data[i] = imgDataObj.data[i+1] = imgDataObj.data[i+2] = gray;
+          }
+          tmpCtx.putImageData(imgDataObj, 0, 0);
+          imgData = tmpCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+          imgMime = 'JPEG';
+        } catch(eg) { /* si falla, usa imagen original */ }
+      }
       pdf.saveGraphicsState();
       pdf.rect(x, y, cellW, imgAreaH).clip().discardPath();
       try {
-        pdf.addImage(`data:image/${mime==='PNG'?'png':'jpeg'};base64,${b64}`,
-          mime, ix, iy, rw, rh, p.Default_code, 'FAST');
+        pdf.addImage(`data:image/${imgMime==='PNG'?'png':'jpeg'};base64,${imgData}`,
+          imgMime, ix, iy, rw, rh, p.Default_code, 'FAST');
       } catch(e) {
-        const alt = mime==='PNG'?'JPEG':'PNG';
-        try { pdf.addImage(`data:image/${alt.toLowerCase()};base64,${b64}`,
+        const alt = imgMime==='PNG'?'JPEG':'PNG';
+        try { pdf.addImage(`data:image/${alt.toLowerCase()};base64,${imgData}`,
           alt, ix, iy, rw, rh, p.Default_code+'b', 'FAST'); } catch(e2){}
       }
       pdf.restoreGraphicsState();
