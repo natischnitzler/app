@@ -860,7 +860,7 @@ function renderCatalogProducts(products){
   let html='';
   
   if(selectedProducts.size>0){
-    html+=`<div style="background:#27ae60;color:white;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:99">
+    html+=`<div style="background:#27ae60;color:white;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:fixed;top:0;left:0;right:0;z-index:200">
       <span>${selectedProducts.size} producto${selectedProducts.size>1?'s':''} seleccionado${selectedProducts.size>1?'s':''}</span>
       <div style="display:flex;gap:8px">
         <button onclick="generateSelectedPDF()" style="background:white;color:#27ae60;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer">📄 PDF</button>
@@ -869,7 +869,7 @@ function renderCatalogProducts(products){
     </div>`;
   }
   
-  html+=`<div class="pdf-products">`;
+  html+=`<div class="pdf-products" style="padding-top:${selectedProducts.size>0?'50px':'0'}">`;
   products.forEach(p=>{
     const price=formatPrice(p.Price||0);
     const stock=p.Stock||0;
