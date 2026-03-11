@@ -860,7 +860,7 @@ function renderCatalogProducts(products){
   let html='';
   
   if(selectedProducts.size>0){
-    html+=`<div style="background:#27ae60;color:white;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:fixed;top:0;left:0;right:0;z-index:200">
+    html+=`<div style="background:#27ae60;color:white;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:fixed;top:56px;left:0;right:0;z-index:200">
       <span>${selectedProducts.size} producto${selectedProducts.size>1?'s':''} seleccionado${selectedProducts.size>1?'s':''}</span>
       <div style="display:flex;gap:8px">
         <button onclick="generateSelectedPDF()" style="background:white;color:#27ae60;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer">📄 PDF</button>
@@ -1242,35 +1242,13 @@ async function generatePDF(catName, products) {
       const ix = x + (cellW - rw) / 2;       // centrado horizontal
       const iy = y;                           // desde arriba
       // Clip a la celda para que no invada columnas vecinas
-      // Convertir a grises si Stock=0 e Incoming>0
       let imgData = b64;
       let imgMime = mime;
-      if ((p.Stock||0) === 0 && (p.Incoming||0) > 0) {
-        try {
-          const grayB64 = await new Promise((resolve) => {
-            const tmpImg = new Image();
-            tmpImg.onload = () => {
-              const tmpCanvas = document.createElement('canvas');
-              tmpCanvas.width = tmpImg.naturalWidth;
-              tmpCanvas.height = tmpImg.naturalHeight;
-              const tmpCtx = tmpCanvas.getContext('2d');
-              tmpCtx.drawImage(tmpImg, 0, 0);
-              const imgDataObj = tmpCtx.getImageData(0, 0, tmpCanvas.width, tmpCanvas.height);
-              for (let i = 0; i < imgDataObj.data.length; i += 4) {
-                const gray = imgDataObj.data[i]*0.299 + imgDataObj.data[i+1]*0.587 + imgDataObj.data[i+2]*0.114;
-                imgDataObj.data[i] = imgDataObj.data[i+1] = imgDataObj.data[i+2] = gray;
-              }
-              tmpCtx.putImageData(imgDataObj, 0, 0);
-              resolve(tmpCanvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
-            };
-            tmpImg.onerror = () => resolve(null);
-            tmpImg.src = `data:image/${mime==='PNG'?'png':'jpeg'};base64,${b64}`;
-          });
-          if (grayB64) { imgData = grayB64; imgMime = 'JPEG'; }
-        } catch(eg) { /* si falla, usa imagen original */ }
-      }
       pdf.saveGraphicsState();
       pdf.rect(x, y, cellW, imgAreaH).clip().discardPath();
+      // Fondo blanco para PNGs con transparencia
+      pdf.setFillColor(255, 255, 255);
+      pdf.rect(x, y, cellW, imgAreaH, 'F');
       try {
         pdf.addImage(`data:image/${imgMime==='PNG'?'png':'jpeg'};base64,${imgData}`,
           imgMime, ix, iy, rw, rh, p.Default_code, 'FAST');
