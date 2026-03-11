@@ -95,6 +95,7 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
 .stock-corner.high{background:#4caf50}
 .stock-corner.medium{background:#ff9800}
 .stock-corner.low{background:#f44336}
+.stock-corner.locked{background:#bbb;color:white;}
 .incoming-corner{position:absolute;top:58px;right:12px;min-width:38px;height:38px;padding:0 10px;border-radius:19px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;background:#9e9e9e;box-shadow:0 3px 10px rgba(0,0,0,0.2)}
 .pdf-product-info{padding:12px 16px;text-align:center}
 .pdf-product-code{font-size:22px;font-weight:700;color:#000;margin-bottom:8px;letter-spacing:0.3px}
@@ -114,7 +115,8 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
   .pdf-product-price{font-size:11px;margin-bottom:3px}
   .product-features{font-size:12px !important;font-weight:400 !important}
   .stock-corner{top:4px;right:4px;min-width:22px;height:22px;font-size:9px}
-  .incoming-corner{top:30px;right:4px;min-width:22px;height:22px;font-size:9px}
+  .stock-corner.locked{background:#bbb;color:white;}
+.incoming-corner{top:30px;right:4px;min-width:22px;height:22px;font-size:9px}
   .contact-info{flex-direction:column;align-items:flex-start;gap:6px}
   .header-stats{gap:28px}
   .stat-number{font-size:24px}
@@ -148,9 +150,68 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
 
 .admin-btn{position:fixed;bottom:20px;right:20px;width:56px;height:56px;background:#2c3e50;color:white;border-radius:50%;border:none;font-size:24px;cursor:pointer;box-shadow:0 4px 12px rgba(44,62,80,0.4);z-index:50}
 .admin-btn:active{transform:scale(0.95)}
+
+/* ===== PANTALLA DE INICIO / LOGIN ===== */
+#welcome-overlay{
+  display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1a252f 0%,#2c3e50 100%);
+  z-index:9999;align-items:center;justify-content:center;flex-direction:column;
+}
+#welcome-overlay.active{display:flex;}
+#welcome-box{
+  background:white;border-radius:20px;padding:44px 36px;
+  width:340px;box-shadow:0 12px 40px rgba(0,0,0,0.4);text-align:center;
+}
+#welcome-box h2{margin:0 0 4px;font-size:20px;color:#2c3e50;font-weight:700;}
+#welcome-box .subtitle{margin:0 0 28px;font-size:13px;color:#888;}
+.welcome-btn{
+  width:100%;padding:13px;border:none;border-radius:10px;
+  font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;transition:opacity .2s;
+}
+.welcome-btn:hover{opacity:0.88;}
+.welcome-btn.primary{background:#2c3e50;color:white;}
+.welcome-btn.secondary{background:#f0f0f0;color:#555;}
+/* Panel de login */
+#login-panel{display:none;margin-top:4px;}
+#login-panel input{
+  width:100%;box-sizing:border-box;padding:11px 14px;
+  border:1.5px solid #ddd;border-radius:8px;font-size:15px;margin-bottom:10px;
+  outline:none;transition:border .2s;
+}
+#login-panel input:focus{border-color:#2c3e50;}
+#login-error{color:#e74c3c;font-size:13px;margin-bottom:8px;display:none;}
+#login-spinner{display:none;margin:8px auto;width:24px;height:24px;
+  border:3px solid #eee;border-top-color:#2c3e50;border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+/* Badge usuario en header */
+#user-badge{
+  display:none;align-items:center;gap:6px;
+  background:rgba(255,255,255,0.12);border-radius:20px;
+  padding:4px 12px;font-size:12px;color:white;cursor:pointer;
+}
+#user-badge:hover{background:rgba(255,255,255,0.2);}
 </style>
 </head>
 <body>
+<!-- PANTALLA DE INICIO -->
+<div id="welcome-overlay">
+  <div id="welcome-box">
+    <h2>🗂 Catálogo Temponovo</h2>
+    <p class="subtitle">¿Cómo deseas continuar?</p>
+    <button class="welcome-btn primary" onclick="enterWithLogin()">Ingresar con mi cuenta</button>
+    <button class="welcome-btn secondary" onclick="enterWithoutLogin()">Ver catálogo sin login</button>
+    <!-- Panel de login (oculto por defecto) -->
+    <div id="login-panel">
+      <input type="text" id="login-rut" placeholder="RUT (sin puntos ni guión, ej: 14230906)"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+      <input type="password" id="login-pass" placeholder="Contraseña"
+        onkeydown="if(event.key==='Enter')doLogin()">
+      <div id="login-error">RUT o contraseña incorrectos</div>
+      <div id="login-spinner"></div>
+      <button class="welcome-btn primary" onclick="doLogin()">Ingresar</button>
+      <button class="welcome-btn secondary" style="margin-top:4px" onclick="cancelLogin()">← Volver</button>
+    </div>
+  </div>
+</div>
 
 <!-- Banner de Actualización -->
 <div id="update-banner" class="update-banner">
@@ -195,7 +256,6 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
     </button>
   </div>
   
-  <button class="admin-btn" onclick="showAdminPanel()">⚙️</button>
 </div>
 
 <div id="pdf-viewer" class="screen">
@@ -224,6 +284,9 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
       <span>📄</span>
       <span>PDF</span>
     </button>
+    <div id="user-badge" onclick="logoutUser()" title="Cerrar sesión">
+      👤 <span class="badge-name"></span> ✕
+    </div>
   </div>
 
   
@@ -566,6 +629,96 @@ function sortProducts(mode){
   showScreen('pdf-viewer');
 }
 
+// ===== LOGIN / BIENVENIDA =====
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Abyzyy4WHtwaX7_hhvanzPc4CrEMIwttRlk15p2SxB8/gviz/tq?tqx=out:csv';
+let _sheetUsers = null; // cache de usuarios
+
+function isLoggedIn(){ return !!sessionStorage.getItem('tn_user'); }
+function getUser(){ 
+  try { return JSON.parse(sessionStorage.getItem('tn_user')); } 
+  catch(e){ return null; }
+}
+
+function showWelcome(){
+  document.getElementById('welcome-overlay').classList.add('active');
+  document.getElementById('login-panel').style.display='none';
+  document.getElementById('login-error').style.display='none';
+}
+function enterWithoutLogin(){
+  sessionStorage.setItem('tn_no_login','1');
+  document.getElementById('welcome-overlay').classList.remove('active');
+  // sin usuario en sesión → no se ven precios ni stock
+  if(filteredProducts && filteredProducts.length) renderCatalogProducts(filteredProducts);
+}
+function enterWithLogin(){
+  document.getElementById('login-panel').style.display='block';
+  setTimeout(()=>document.getElementById('login-rut').focus(),100);
+}
+function cancelLogin(){
+  document.getElementById('login-panel').style.display='none';
+  document.getElementById('login-error').style.display='none';
+}
+function showLogin(){ showWelcome(); enterWithLogin(); }
+
+async function loadSheetUsers(){
+  if(_sheetUsers) return _sheetUsers;
+  const res = await fetch(SHEET_URL);
+  const csv = await res.text();
+  const lines = csv.trim().split('\n').slice(1); // saltar cabecera
+  _sheetUsers = lines.map(line=>{
+    const parts = line.match(/(".*?"|[^,]+)/g) || [];
+    const clean = s => (s||'').replace(/^"|"$/g,'').trim();
+    const rawRut = clean(parts[0]).replace(/[.\-]/g,''); return { rut: rawRut, nombre: clean(parts[1]), pass: clean(parts[2]) };
+  });
+  return _sheetUsers;
+}
+
+async function doLogin(){
+  const rut = (document.getElementById('login-rut').value||'').trim().replace(/[.\-]/g,'');
+  const pass = (document.getElementById('login-pass').value||'').trim();
+  document.getElementById('login-error').style.display='none';
+  document.getElementById('login-spinner').style.display='block';
+  try {
+    const users = await loadSheetUsers();
+    const user = users.find(u => u.rut === rut && u.pass === pass);
+    document.getElementById('login-spinner').style.display='none';
+    if(user){
+      sessionStorage.setItem('tn_user', JSON.stringify({rut: user.rut, nombre: user.nombre}));
+      document.getElementById('welcome-overlay').classList.remove('active');
+      updateUserBadge();
+      if(filteredProducts && filteredProducts.length) renderCatalogProducts(filteredProducts);
+    } else {
+      document.getElementById('login-error').style.display='block';
+      document.getElementById('login-pass').value='';
+      document.getElementById('login-pass').focus();
+    }
+  } catch(e){
+    document.getElementById('login-spinner').style.display='none';
+    document.getElementById('login-error').textContent='Error de conexión, intenta de nuevo.';
+    document.getElementById('login-error').style.display='block';
+  }
+}
+
+function updateUserBadge(){
+  const badge = document.getElementById('user-badge');
+  if(!badge) return;
+  const user = getUser();
+  if(user){
+    badge.style.display='flex';
+    badge.querySelector('.badge-name').textContent = user.nombre.split(' ')[0];
+  } else {
+    badge.style.display='none';
+  }
+}
+function logoutUser(){
+  sessionStorage.removeItem('tn_user');
+  sessionStorage.removeItem('tn_no_login');
+  _sheetUsers = null;
+  updateUserBadge();
+  showWelcome();
+  if(filteredProducts && filteredProducts.length) renderCatalogProducts(filteredProducts);
+}
+
 function toggleSearch(){
   const bar=document.getElementById('search-bar');
   const input=document.getElementById('search-input');
@@ -872,15 +1025,17 @@ function renderCatalogProducts(products){
   
   html+=`<div class="pdf-products" style="padding-top:${selectedProducts.size>0?'50px':'0'}">`;
   products.forEach(p=>{
-    const price=formatPrice(p.Price||0);
-    const stock=p.Stock||0;
-    const incoming=p.Incoming||0;
-    const stockDisplay=stock>100?'100+':stock;
-    let stockClass='high';
-    if(stock<10)stockClass='low';
-    else if(stock<15)stockClass='medium';
+    const logged=isLoggedIn();
+    const price=logged?formatPrice(p.Price||0):'';
+    const stock=logged?(p.Stock||0):null;
+    const incoming=logged?(p.Incoming||0):0;
+    const stockDisplay=stock===null?'🔒':(stock>100?'100+':stock);
+    let stockClass=stock===null?'locked':(stock<10?'low':(stock<15?'medium':'high'));
     const incomingDisplay=incoming>100?'100+':incoming;
     const incomingBadge=(incoming>0&&(p.Stock||0)===0)?`<div class="incoming-corner" title="Próximamente en stock">${incomingDisplay}</div>`:'';
+    const priceHtml=logged
+      ? `<div class="pdf-product-price">${price} <span>+ IVA</span></div>`
+      : `<div class="pdf-product-price" style="cursor:pointer;color:#aaa" onclick="showLogin()">🔒 Ver precio</div>`;
     const imgTag=p.Default_code?`<img data-code="${p.Default_code}" class="lazy-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="${p.Name}" loading="lazy">`:'';
     const caract=caracteristicas[p.Default_code];
     let featuresHtml='';
@@ -919,7 +1074,7 @@ function renderCatalogProducts(products){
         </div>
         <div class="pdf-product-info">
           <div class="pdf-product-code">${cleanProductCode(p.Default_code, p.Name)||''}</div>
-          <div class="pdf-product-price">${price} <span>+ IVA</span></div>
+          ${priceHtml}
           ${featuresHtml}
         </div>
       </div>`;
@@ -927,7 +1082,7 @@ function renderCatalogProducts(products){
   html+=`</div>
     <div class="pdf-footer">
       📞 9 6292 9654 · 2 2229 3138 | ✉️ ventas@temponovo.cl | 📍 Las Carmelitas 51, Las Condes<br>
-      Actualizado: ${today}
+      Actualizado: ${today}${(()=>{ const u=getUser(); return u ? ' &nbsp;|&nbsp; 👤 '+u.nombre : ''; })()}
     </div>`;
   document.getElementById('pdf-content').innerHTML=html;
   
@@ -1182,7 +1337,9 @@ async function generatePDF(catName, products) {
     const ahora = new Date();
     const fecha = ahora.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
     const hora  = ahora.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
-    pdf.text(`Precios sin IVA  ·  ${fecha}  ${hora}`, pageW/2, fy+3.8, {align:'center'});
+    const _pdfUser = getUser();
+    const _pdfUserStr = _pdfUser ? `  ·  👤 ${_pdfUser.nombre}` : '';
+    pdf.text(`Precios sin IVA  ·  ${fecha}  ${hora}${_pdfUserStr}`, pageW/2, fy+3.8, {align:'center'});
     if (hasIncoming) {
       pdf.setFontSize(9); pdf.setFont('helvetica','italic'); pdf.setTextColor(100,100,100);
       pdf.text('* Productos no disponibles para despacho inmediato', pageW/2, fy+8, {align:'center'});
@@ -1242,20 +1399,33 @@ async function generatePDF(catName, products) {
       const ix = x + (cellW - rw) / 2;       // centrado horizontal
       const iy = y;                           // desde arriba
       // Clip a la celda para que no invada columnas vecinas
-      let imgData = b64;
-      let imgMime = mime;
+      // Comprimir imagen a JPEG antes de insertar para reducir peso del PDF
+      let imgData = await new Promise((resolve) => {
+        const tmpImg = new Image();
+        tmpImg.onload = () => {
+          const tmpCanvas = document.createElement('canvas');
+          tmpCanvas.width = tmpImg.naturalWidth;
+          tmpCanvas.height = tmpImg.naturalHeight;
+          const tmpCtx = tmpCanvas.getContext('2d');
+          tmpCtx.fillStyle = '#FFFFFF';
+          tmpCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+          tmpCtx.drawImage(tmpImg, 0, 0);
+          resolve(tmpCanvas.toDataURL('image/jpeg', 0.6).split(',')[1]);
+        };
+        tmpImg.onerror = () => resolve(b64);
+        tmpImg.src = `data:image/${mime==='PNG'?'png':'jpeg'};base64,${b64}`;
+      });
+      let imgMime = 'JPEG';
       pdf.saveGraphicsState();
       pdf.rect(x, y, cellW, imgAreaH).clip().discardPath();
-      // Fondo blanco para PNGs con transparencia
       pdf.setFillColor(255, 255, 255);
       pdf.rect(x, y, cellW, imgAreaH, 'F');
       try {
-        pdf.addImage(`data:image/${imgMime==='PNG'?'png':'jpeg'};base64,${imgData}`,
-          imgMime, ix, iy, rw, rh, p.Default_code, 'FAST');
+        pdf.addImage(`data:image/jpeg;base64,${imgData}`,
+          'JPEG', ix, iy, rw, rh, p.Default_code, 'FAST');
       } catch(e) {
-        const alt = imgMime==='PNG'?'JPEG':'PNG';
-        try { pdf.addImage(`data:image/${alt.toLowerCase()};base64,${imgData}`,
-          alt, ix, iy, rw, rh, p.Default_code+'b', 'FAST'); } catch(e2){}
+        try { pdf.addImage(`data:image/jpeg;base64,${b64}`,
+          'JPEG', ix, iy, rw, rh, p.Default_code+'b', 'FAST'); } catch(e2){}
       }
       pdf.restoreGraphicsState();
     }
@@ -1303,7 +1473,10 @@ async function generatePDF(catName, products) {
   }
 
   drawFooter();
-  pdf.save(`${catName.replace(/[^a-z0-9áéíóúñ]/gi,'_')}.pdf`);
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+  const cleanName = catName.replace(/[^a-z0-9áéíóúñ]/gi,'_');
+  pdf.save(`Temponovo_${cleanName}_${dateStr}.pdf`);
   showToast(`✓ PDF: ${Object.keys(prodImgs).length}/${products.length} con foto`);
 }
 async function generateExcelSelection() {
@@ -1318,6 +1491,7 @@ async function generateExcel() {
 }
 
 async function generateExcelFromProducts(products, name) {
+  if(!isLoggedIn()){showLogin();return;}
   if (!products || products.length === 0) { showToast('Sin productos'); return; }
   showToast('Generando Excel...');
   try {
@@ -1329,10 +1503,14 @@ async function generateExcelFromProducts(products, name) {
         document.head.appendChild(s);
       });
     }
-    const rows = [['Código', 'Nombre', 'Precio', 'Cantidad', 'Total']];
+    const _exUser = getUser();
+    const rows = [];
+    if(_exUser) rows.push(['Cliente: ' + _exUser.nombre, '', '', '', '']);
+    rows.push(['Código', 'Nombre', 'Precio', 'Cantidad', 'Total']);
     products.forEach((p, i) => {
       const code = cleanProductCode(p.Default_code, p.Name) || p.Default_code || '';
-      const rowNum = i + 2;
+      const dataStart = _exUser ? 3 : 2;
+      const rowNum = rows.length + 1;
       rows.push([code, p.Name || '', p.Price || 0, 1, `=C${rowNum}*D${rowNum}`]);
     });
     const dataEnd = rows.length;
@@ -1479,6 +1657,7 @@ async function getProductImageB64(code, size) {
 }
 
 async function shareCatalogPDF(){
+  if(!isLoggedIn()){showLogin();return;}
   if(!currentCatalog)return;
   showToast('Generando PDF...');
   try{
@@ -1865,6 +2044,12 @@ async function init() {
     showToast('📴 Sin conexión - Usando datos guardados');
     setSyncStatus('Offline');
   });
+
+  // Mostrar pantalla de bienvenida si no hay sesión activa
+  if (!isLoggedIn() && !sessionStorage.getItem('tn_no_login')) {
+    showWelcome();
+  }
+  updateUserBadge();
 }
 
 init();
