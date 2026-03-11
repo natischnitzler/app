@@ -65,6 +65,7 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
 .filter-count{background:#27ae60;color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
 .share-btn{background:#2c3e50;color:white;border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px}
 .share-btn:active{opacity:0.8}
+#fab-pdf button:active{opacity:0.8}
 
 .filters-sidebar{position:fixed;top:0;right:-300px;width:280px;height:100vh;background:white;box-shadow:-2px 0 10px rgba(0,0,0,0.1);z-index:200;transition:right 0.3s;overflow-y:auto}
 .filters-sidebar.open{right:0}
@@ -95,6 +96,7 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
 .stock-corner.high{background:#4caf50}
 .stock-corner.medium{background:#ff9800}
 .stock-corner.low{background:#f44336}
+.incoming-corner{position:absolute;top:58px;right:12px;min-width:38px;height:38px;padding:0 10px;border-radius:19px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;background:#9e9e9e;box-shadow:0 3px 10px rgba(0,0,0,0.2)}
 .pdf-product-info{padding:12px 16px;text-align:center}
 .pdf-product-code{font-size:22px;font-weight:700;color:#000;margin-bottom:8px;letter-spacing:0.3px}
 .pdf-product-category{font-size:12px;color:#666;margin-bottom:6px;font-weight:500}
@@ -113,6 +115,7 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
   .pdf-product-price{font-size:11px;margin-bottom:3px}
   .product-features{font-size:12px !important;font-weight:400 !important}
   .stock-corner{top:4px;right:4px;min-width:22px;height:22px;font-size:9px}
+  .incoming-corner{top:30px;right:4px;min-width:22px;height:22px;font-size:9px}
   .contact-info{flex-direction:column;align-items:flex-start;gap:6px}
   .header-stats{gap:28px}
   .stat-number{font-size:24px}
@@ -221,6 +224,20 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
     <button class="share-btn" onclick="shareCatalogPDF()">
       <span>📄</span>
       <span>PDF</span>
+    </button>
+    <button class="share-btn" onclick="generateExcel()" style="background:#1a6e3c">
+      <span>📊</span>
+      <span>Excel</span>
+    </button>
+    <button class="share-btn" onclick="generateCotizacion()" style="background:#7b341e">
+      <span>🧾</span>
+      <span>Cotización</span>
+    </button>
+  </div>
+  <!-- Botón flotante PDF al scrollear -->
+  <div id="fab-pdf" style="display:none;position:fixed;bottom:80px;right:16px;z-index:999">
+    <button onclick="shareCatalogPDF()" style="background:#2c3e50;color:white;border:none;padding:12px 18px;border-radius:50px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.3);display:flex;align-items:center;gap:8px">
+      <span>📄</span><span>PDF</span>
     </button>
   </div>
   
@@ -354,7 +371,7 @@ async function fetchProducts(){
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
     if(!Array.isArray(data))throw new Error('Invalid response');
-    const inStock=data.filter(p=>(p.Stock||0)>0);
+    const inStock=data.filter(p=>(p.Stock||0)>0||(p.Incoming||0)>0);
     await saveProducts(inStock);
     allProducts=inStock;
     setSyncStatus('Actualizado');
@@ -562,6 +579,15 @@ function sortProducts(mode){
   renderCatalogProducts(sorted);
   showScreen('pdf-viewer');
 }
+
+// FAB PDF: mostrar al scrollear en pdf-viewer
+document.addEventListener('scroll', function() {
+  const fab = document.getElementById('fab-pdf');
+  if (!fab) return;
+  const pdfViewer = document.getElementById('pdf-viewer');
+  if (!pdfViewer || pdfViewer.style.display === 'none') { fab.style.display='none'; return; }
+  fab.style.display = window.scrollY > 120 ? 'block' : 'none';
+}, {passive: true});
 
 function toggleSearch(){
   const bar=document.getElementById('search-bar');
@@ -867,10 +893,13 @@ function renderCatalogProducts(products){
   products.forEach(p=>{
     const price=formatPrice(p.Price||0);
     const stock=p.Stock||0;
+    const incoming=p.Incoming||0;
     const stockDisplay=stock>100?'100+':stock;
     let stockClass='high';
     if(stock<10)stockClass='low';
     else if(stock<15)stockClass='medium';
+    const incomingDisplay=incoming>100?'100+':incoming;
+    const incomingBadge=(incoming>0&&(p.Stock||0)===0)?`<div class="incoming-corner" title="Próximamente en stock">${incomingDisplay}</div>`:'';
     const imgTag=p.Default_code?`<img data-code="${p.Default_code}" class="lazy-img" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="${p.Name}" loading="lazy">`:'';
     const caract=caracteristicas[p.Default_code];
     let featuresHtml='';
@@ -905,6 +934,7 @@ function renderCatalogProducts(products){
           ${imgTag}
           <div class="emoji" style="${imgTag?'display:none':'display:flex'}">📦</div>
           <div class="stock-corner ${stockClass}">${stockDisplay}</div>
+          ${incomingBadge}
         </div>
         <div class="pdf-product-info">
           <div class="pdf-product-code">${cleanProductCode(p.Default_code, p.Name)||''}</div>
@@ -1117,7 +1147,8 @@ async function generatePDF(catName, products) {
 
   // ── Layout ────────────────────────────────────────────────────────
   const cols = 4, rows = 4, perPage = 16;
-  const footerH = 5;
+  const footerH = 10;
+  const hasIncoming = products.some(p => (p.Incoming||0) > 0 && (p.Stock||0) === 0);
   const gapX = 0, gapY = 0;
   const cellW = (pageW - mg*2) / cols;
   const cellH = 58;
@@ -1166,6 +1197,10 @@ async function generatePDF(catName, products) {
     const fecha = ahora.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
     const hora  = ahora.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
     pdf.text(`Precios sin IVA  ·  ${fecha}  ${hora}`, pageW/2, fy+3.8, {align:'center'});
+    if (hasIncoming) {
+      pdf.setFontSize(9); pdf.setFont('helvetica','italic'); pdf.setTextColor(100,100,100);
+      pdf.text('* Productos no disponibles para despacho inmediato', pageW/2, fy+8, {align:'center'});
+    }
   }
 
   // ── PRODUCTOS — ordenar por subfamilia luego alfabético ───────────
@@ -1221,14 +1256,41 @@ async function generatePDF(catName, products) {
       const ix = x + (cellW - rw) / 2;       // centrado horizontal
       const iy = y;                           // desde arriba
       // Clip a la celda para que no invada columnas vecinas
+      // Convertir a grises si Stock=0 e Incoming>0
+      let imgData = b64;
+      let imgMime = mime;
+      if ((p.Stock||0) === 0 && (p.Incoming||0) > 0) {
+        try {
+          const grayB64 = await new Promise((resolve) => {
+            const tmpImg = new Image();
+            tmpImg.onload = () => {
+              const tmpCanvas = document.createElement('canvas');
+              tmpCanvas.width = tmpImg.naturalWidth;
+              tmpCanvas.height = tmpImg.naturalHeight;
+              const tmpCtx = tmpCanvas.getContext('2d');
+              tmpCtx.drawImage(tmpImg, 0, 0);
+              const imgDataObj = tmpCtx.getImageData(0, 0, tmpCanvas.width, tmpCanvas.height);
+              for (let i = 0; i < imgDataObj.data.length; i += 4) {
+                const gray = imgDataObj.data[i]*0.299 + imgDataObj.data[i+1]*0.587 + imgDataObj.data[i+2]*0.114;
+                imgDataObj.data[i] = imgDataObj.data[i+1] = imgDataObj.data[i+2] = gray;
+              }
+              tmpCtx.putImageData(imgDataObj, 0, 0);
+              resolve(tmpCanvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+            };
+            tmpImg.onerror = () => resolve(null);
+            tmpImg.src = `data:image/${mime==='PNG'?'png':'jpeg'};base64,${b64}`;
+          });
+          if (grayB64) { imgData = grayB64; imgMime = 'JPEG'; }
+        } catch(eg) { /* si falla, usa imagen original */ }
+      }
       pdf.saveGraphicsState();
       pdf.rect(x, y, cellW, imgAreaH).clip().discardPath();
       try {
-        pdf.addImage(`data:image/${mime==='PNG'?'png':'jpeg'};base64,${b64}`,
-          mime, ix, iy, rw, rh, p.Default_code, 'FAST');
+        pdf.addImage(`data:image/${imgMime==='PNG'?'png':'jpeg'};base64,${imgData}`,
+          imgMime, ix, iy, rw, rh, p.Default_code, 'FAST');
       } catch(e) {
-        const alt = mime==='PNG'?'JPEG':'PNG';
-        try { pdf.addImage(`data:image/${alt.toLowerCase()};base64,${b64}`,
+        const alt = imgMime==='PNG'?'JPEG':'PNG';
+        try { pdf.addImage(`data:image/${alt.toLowerCase()};base64,${imgData}`,
           alt, ix, iy, rw, rh, p.Default_code+'b', 'FAST'); } catch(e2){}
       }
       pdf.restoreGraphicsState();
@@ -1238,7 +1300,7 @@ async function generatePDF(catName, products) {
     const infoY = y + imgAreaH + 1.5;
     pdf.setFontSize(9); pdf.setFont('helvetica','bold');
     pdf.setTextColor(0,0,0);
-    pdf.text(cleanProductCode(p.Default_code, p.Name)||'', x+cellW/2, infoY, {align:'center'});
+    pdf.text((cleanProductCode(p.Default_code, p.Name)||'') + (p.Incoming > 0 && (p.Stock||0) === 0 ? ' *' : ''), x+cellW/2, infoY, {align:'center'});
 
     // ── Precio ──
     pdf.setFontSize(8.5); pdf.setFont('helvetica','normal');
@@ -1280,6 +1342,175 @@ async function generatePDF(catName, products) {
   pdf.save(`${catName.replace(/[^a-z0-9áéíóúñ]/gi,'_')}.pdf`);
   showToast(`✓ PDF: ${Object.keys(prodImgs).length}/${products.length} con foto`);
 }
+async function generateExcel() {
+  if (!currentCatalog) return;
+  const products = filteredProducts;
+  if (!products || products.length === 0) { showToast('Sin productos'); return; }
+  showToast('Generando Excel...');
+  try {
+    // Cargar SheetJS dinámicamente si no está
+    if (typeof XLSX === 'undefined') {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    const wb = XLSX.utils.book_new();
+    const rows = [['Código', 'Nombre', 'Precio', 'Cantidad', 'Total']];
+    products.forEach((p, i) => {
+      const code = cleanProductCode(p.Default_code, p.Name) || p.Default_code || '';
+      rows.push([code, p.Name || '', p.Price || 0, '', '']);
+    });
+    // Fila total
+    const dataStart = 2;
+    const dataEnd = rows.length;
+    rows.push(['', 'TOTAL', '', `=SUM(D${dataStart}:D${dataEnd})`, `=SUMPRODUCT(C${dataStart}:C${dataEnd},D${dataStart}:D${dataEnd})`]);
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+
+    // Ancho columnas
+    ws['!cols'] = [{wch:18},{wch:45},{wch:12},{wch:12},{wch:14}];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Catálogo');
+    const fileName = (currentCatalog.name || 'catalogo').replace(/[^a-z0-9áéíóúñ]/gi,'_') + '.xlsx';
+    XLSX.writeFile(wb, fileName);
+    showToast('✓ Excel descargado');
+  } catch(err) {
+    console.error('Excel error:', err);
+    showToast('Error al generar Excel');
+  }
+}
+
+async function generateCotizacion() {
+  if (!currentCatalog) return;
+  const products = filteredProducts;
+  if (!products || products.length === 0) { showToast('Sin productos'); return; }
+  showToast('Generando cotización...');
+  try {
+    if (typeof XLSX === 'undefined') {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    const wb = XLSX.utils.book_new();
+    const ws = {};
+    const ROW_H = 50; // altura en px de cada fila (aprox 38 puntos)
+    const IMG_SIZE = 45; // tamaño miniatura en px
+
+    // Columnas: Foto | Código | Nombre | Precio | Cantidad | Total
+    ws['A1'] = {v:'Foto', t:'s'};
+    ws['B1'] = {v:'Código', t:'s'};
+    ws['C1'] = {v:'Nombre', t:'s'};
+    ws['D1'] = {v:'Precio', t:'s'};
+    ws['E1'] = {v:'Cantidad', t:'s'};
+    ws['F1'] = {v:'Total', t:'s'};
+
+    ws['!cols'] = [{wch:8},{wch:18},{wch:45},{wch:12},{wch:12},{wch:14}];
+    ws['!rows'] = [{hpt:20}]; // header row height
+
+    const drawings = [];
+    let row = 2;
+
+    for (const p of products) {
+      const code = cleanProductCode(p.Default_code, p.Name) || p.Default_code || '';
+      ws[`B${row}`] = {v: code, t:'s'};
+      ws[`C${row}`] = {v: p.Name || '', t:'s'};
+      ws[`D${row}`] = {v: p.Price || 0, t:'n'};
+      ws[`E${row}`] = {v: '', t:'s'};
+      ws[`F${row}`] = {v: `=D${row}*E${row}`, t:'n'};
+      ws['!rows'][row-1] = {hpt: 38}; // altura de fila en puntos
+
+      // Intentar obtener imagen en miniatura
+      if (p.Default_code) {
+        try {
+          const imgB64 = await getProductImageB64(p.Default_code, IMG_SIZE);
+          if (imgB64) {
+            drawings.push({ row: row - 1, col: 0, b64: imgB64 });
+          }
+        } catch(e) {}
+      }
+      row++;
+    }
+
+    // Total
+    ws[`C${row}`] = {v:'TOTAL', t:'s'};
+    ws[`E${row}`] = {v:`=SUM(E2:E${row-1})`, t:'n'};
+    ws[`F${row}`] = {v:`=SUMPRODUCT(D2:D${row-1},E2:E${row-1})`, t:'n'};
+
+    ws['!ref'] = `A1:F${row}`;
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Cotización');
+
+    // Agregar imágenes si SheetJS Pro no disponible, usamos workaround básico
+    // Las imágenes se agregan como comentarios o se omiten si no soportado
+    if (drawings.length > 0 && wb.Sheets['Cotización']) {
+      try {
+        if (!wb.SheetNames) wb.SheetNames = ['Cotización'];
+        const wsDraw = wb.Sheets['Cotización'];
+        if (!wsDraw['!drawings']) wsDraw['!drawings'] = [];
+        drawings.forEach(d => {
+          wsDraw['!drawings'].push({
+            type: 'image', data: d.b64, contentType: 'image/jpeg',
+            editAs: 'oneCell',
+            from: {col: d.col, colOff: 72000, row: d.row, rowOff: 72000},
+            to: {col: d.col+1, colOff: 0, row: d.row+1, rowOff: 0}
+          });
+        });
+      } catch(e) { console.warn('Imágenes no soportadas en esta versión de SheetJS'); }
+    }
+
+    const fileName = 'cotizacion_' + (currentCatalog.name || 'catalogo').replace(/[^a-z0-9áéíóúñ]/gi,'_') + '.xlsx';
+    XLSX.writeFile(wb, fileName);
+    showToast('✓ Cotización descargada');
+  } catch(err) {
+    console.error('Cotización error:', err);
+    showToast('Error al generar cotización');
+  }
+}
+
+// Obtiene imagen de un producto como base64 miniatura desde caché IDB
+async function getProductImageB64(code, size) {
+  return new Promise(resolve => {
+    try {
+      const req = indexedDB.open('temponovo-images', 1);
+      req.onsuccess = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('images')) { resolve(null); return; }
+        const tx = db.transaction('images', 'readonly');
+        const store = tx.objectStore('images');
+        const get = store.get(code);
+        get.onsuccess = ev => {
+          const blob = ev.target.result;
+          if (!blob) { resolve(null); return; }
+          const url = URL.createObjectURL(blob);
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = size; canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            // Centrar y recortar
+            const s = Math.min(img.naturalWidth, img.naturalHeight);
+            const sx = (img.naturalWidth - s) / 2;
+            const sy = (img.naturalHeight - s) / 2;
+            ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+            URL.revokeObjectURL(url);
+            resolve(canvas.toDataURL('image/jpeg', 0.7).split(',')[1]);
+          };
+          img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+          img.src = url;
+        };
+        get.onerror = () => resolve(null);
+      };
+      req.onerror = () => resolve(null);
+    } catch(e) { resolve(null); }
+  });
+}
+
 async function shareCatalogPDF(){
   if(!currentCatalog)return;
   showToast('Generando PDF...');
