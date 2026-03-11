@@ -225,6 +225,7 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
 <div id="home" class="screen active">
   <div class="header">
     <div class="last-update" id="last-update-display">Última actualización: --</div>
+    <div id="home-user-name" style="font-size:12px;color:#aaa;margin-top:2px;display:none;"></div>
     <div class="sync-status">
       <img src="https://www.temponovo.cl/asset/img/temponovo-logo-color.svg" alt="Temponovo" class="logo">
       <div class="sync-dot"></div>
@@ -627,6 +628,7 @@ function sortProducts(mode){
   }
   renderCatalogProducts(sorted);
   showScreen('pdf-viewer');
+  updateUserBadge();
 }
 
 // ===== LOGIN / BIENVENIDA =====
@@ -708,6 +710,16 @@ function updateUserBadge(){
     badge.querySelector('.badge-name').textContent = user.nombre.split(' ')[0];
   } else {
     badge.style.display='none';
+  }
+  // Mostrar nombre en home header
+  const homeUserName = document.getElementById('home-user-name');
+  if(homeUserName){
+    if(user){
+      homeUserName.textContent = '👤 ' + user.nombre;
+      homeUserName.style.display='block';
+    } else {
+      homeUserName.style.display='none';
+    }
   }
 }
 function logoutUser(){
@@ -1005,6 +1017,7 @@ function openCatalog(n){
   sortProducts('subfamily');
   
   showScreen('pdf-viewer');
+  updateUserBadge();
 }
 
 function renderCatalogProducts(products){
@@ -1135,6 +1148,7 @@ async function loadLazyImages(){
 }
 
 async function generateSelectedPDF(){
+  if(!isLoggedIn()){ showWelcome(); enterWithLogin(); return; }
   if(selectedProducts.size===0){
     showToast('Selecciona al menos un producto');
     return;
@@ -1338,7 +1352,7 @@ async function generatePDF(catName, products) {
     const fecha = ahora.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'});
     const hora  = ahora.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
     const _pdfUser = getUser();
-    const _pdfUserStr = _pdfUser ? `  ·  👤 ${_pdfUser.nombre}` : '';
+    const _pdfUserStr = _pdfUser ? `  |  ${_pdfUser.nombre}` : '';
     pdf.text(`Precios sin IVA  ·  ${fecha}  ${hora}${_pdfUserStr}`, pageW/2, fy+3.8, {align:'center'});
     if (hasIncoming) {
       pdf.setFontSize(9); pdf.setFont('helvetica','italic'); pdf.setTextColor(100,100,100);
@@ -1480,12 +1494,14 @@ async function generatePDF(catName, products) {
   showToast(`✓ PDF: ${Object.keys(prodImgs).length}/${products.length} con foto`);
 }
 async function generateExcelSelection() {
+  if(!isLoggedIn()){ showWelcome(); enterWithLogin(); return; }
   if (selectedProducts.size === 0) { showToast('Sin productos seleccionados'); return; }
   const sel = filteredProducts.filter(p => selectedProducts.has(p.Default_code));
   await generateExcelFromProducts(sel, currentCatalog?.name + ' (Selección)');
 }
 
 async function generateExcel() {
+  if(!isLoggedIn()){ showWelcome(); enterWithLogin(); return; }
   if (!currentCatalog) return;
   await generateExcelFromProducts(filteredProducts, currentCatalog.name);
 }
@@ -1657,6 +1673,7 @@ async function getProductImageB64(code, size) {
 }
 
 async function shareCatalogPDF(){
+  if(!isLoggedIn()){ showWelcome(); enterWithLogin(); return; }
   if(!isLoggedIn()){showLogin();return;}
   if(!currentCatalog)return;
   showToast('Generando PDF...');
