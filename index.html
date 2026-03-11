@@ -865,6 +865,7 @@ function renderCatalogProducts(products){
       <div style="display:flex;gap:8px">
         <button onclick="generateSelectedPDF()" style="background:white;color:#27ae60;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer">📄 PDF</button>
         <button onclick="generateExcelSelection()" style="background:white;color:#1a6e3c;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer">📊 Excel</button>
+        <button onclick="clearSelection()" style="background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.5);padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer">✕ Limpiar</button>
       </div>
     </div>`;
   }
@@ -932,6 +933,11 @@ function renderCatalogProducts(products){
   
   // Cargar imágenes bajo demanda
   setTimeout(()=>loadLazyImages(),100);
+}
+
+function clearSelection(){
+  selectedProducts.clear();
+  renderCatalogProducts(filteredProducts);
 }
 
 function toggleProductSelection(sku){
@@ -1346,12 +1352,13 @@ async function generateExcelFromProducts(products, name) {
       });
     }
     const rows = [['Código', 'Nombre', 'Precio', 'Cantidad', 'Total']];
-    products.forEach(p => {
+    products.forEach((p, i) => {
       const code = cleanProductCode(p.Default_code, p.Name) || p.Default_code || '';
-      rows.push([code, p.Name || '', p.Price || 0, '', '']);
+      const rowNum = i + 2;
+      rows.push([code, p.Name || '', p.Price || 0, 1, `=C${rowNum}*D${rowNum}`]);
     });
     const dataEnd = rows.length;
-    rows.push(['', 'TOTAL', '', `=SUM(D2:D${dataEnd})`, `=SUMPRODUCT(C2:C${dataEnd},D2:D${dataEnd})`]);
+    rows.push(['', 'TOTAL', '', `=SUM(D2:D${dataEnd})`, `=SUM(E2:E${dataEnd})`]);
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [{wch:18},{wch:45},{wch:12},{wch:12},{wch:14}];
     const wb = XLSX.utils.book_new();
