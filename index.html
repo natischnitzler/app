@@ -225,14 +225,6 @@ body{font-family:'Roboto',sans-serif;background:#f5f5f5;color:#333}
       <span>📄</span>
       <span>PDF</span>
     </button>
-    <button class="share-btn" onclick="generateExcel()" style="background:#1a6e3c">
-      <span>📊</span>
-      <span>Excel</span>
-    </button>
-    <button class="share-btn" onclick="generateCotizacion()" style="background:#7b341e">
-      <span>🧾</span>
-      <span>Cotización</span>
-    </button>
   </div>
   <!-- Botón flotante PDF al scrollear -->
   <div id="fab-pdf" style="display:none;position:fixed;bottom:80px;right:16px;z-index:999">
@@ -885,7 +877,10 @@ function renderCatalogProducts(products){
   if(selectedProducts.size>0){
     html+=`<div style="background:#27ae60;color:white;padding:12px 20px;display:flex;align-items:center;justify-content:space-between">
       <span>${selectedProducts.size} producto${selectedProducts.size>1?'s':''} seleccionado${selectedProducts.size>1?'s':''}</span>
-      <button onclick="generateSelectedPDF()" style="background:white;color:#27ae60;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer">Generar PDF</button>
+      <div style="display:flex;gap:8px">
+        <button onclick="generateSelectedPDF()" style="background:white;color:#27ae60;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer">📄 PDF</button>
+        <button onclick="generateExcelSelection()" style="background:white;color:#1a6e3c;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer">📊 Excel</button>
+      </div>
     </div>`;
   }
   
@@ -1342,13 +1337,21 @@ async function generatePDF(catName, products) {
   pdf.save(`${catName.replace(/[^a-z0-9áéíóúñ]/gi,'_')}.pdf`);
   showToast(`✓ PDF: ${Object.keys(prodImgs).length}/${products.length} con foto`);
 }
+async function generateExcelSelection() {
+  if (selectedProducts.size === 0) { showToast('Sin productos seleccionados'); return; }
+  const sel = filteredProducts.filter(p => selectedProducts.has(p.Default_code));
+  await generateExcelFromProducts(sel, currentCatalog?.name + ' (Selección)');
+}
+
 async function generateExcel() {
   if (!currentCatalog) return;
-  const products = filteredProducts;
+  await generateExcelFromProducts(filteredProducts, currentCatalog.name);
+}
+
+async function generateExcelFromProducts(products, name) {
   if (!products || products.length === 0) { showToast('Sin productos'); return; }
   showToast('Generando Excel...');
   try {
-    // Cargar SheetJS dinámicamente si no está
     if (typeof XLSX === 'undefined') {
       await new Promise((res, rej) => {
         const s = document.createElement('script');
@@ -1357,24 +1360,18 @@ async function generateExcel() {
         document.head.appendChild(s);
       });
     }
-    const wb = XLSX.utils.book_new();
     const rows = [['Código', 'Nombre', 'Precio', 'Cantidad', 'Total']];
-    products.forEach((p, i) => {
+    products.forEach(p => {
       const code = cleanProductCode(p.Default_code, p.Name) || p.Default_code || '';
       rows.push([code, p.Name || '', p.Price || 0, '', '']);
     });
-    // Fila total
-    const dataStart = 2;
     const dataEnd = rows.length;
-    rows.push(['', 'TOTAL', '', `=SUM(D${dataStart}:D${dataEnd})`, `=SUMPRODUCT(C${dataStart}:C${dataEnd},D${dataStart}:D${dataEnd})`]);
-
+    rows.push(['', 'TOTAL', '', `=SUM(D2:D${dataEnd})`, `=SUMPRODUCT(C2:C${dataEnd},D2:D${dataEnd})`]);
     const ws = XLSX.utils.aoa_to_sheet(rows);
-
-    // Ancho columnas
     ws['!cols'] = [{wch:18},{wch:45},{wch:12},{wch:12},{wch:14}];
-
+    const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Catálogo');
-    const fileName = (currentCatalog.name || 'catalogo').replace(/[^a-z0-9áéíóúñ]/gi,'_') + '.xlsx';
+    const fileName = (name || 'catalogo').replace(/[^a-z0-9áéíóúñ]/gi,'_') + '.xlsx';
     XLSX.writeFile(wb, fileName);
     showToast('✓ Excel descargado');
   } catch(err) {
