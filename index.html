@@ -724,14 +724,29 @@ async function doLogin(){
   if(navigator.onLine){
     // Con internet: validar en el servidor (logins frescos del Sheet)
     try {
+      // Timeout de 25s para dar tiempo a Render de despertar
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 25000);
+      const spinnerEl = document.getElementById('login-spinner');
+      // Mensaje de espera si tarda más de 3s
+      const slowTimer = setTimeout(() => {
+        if(spinnerEl) spinnerEl.title = 'Conectando al servidor...';
+        const errEl = document.getElementById('login-error');
+        if(errEl){ errEl.textContent='Conectando... por favor espera'; errEl.style.display='block'; errEl.style.color='#888'; }
+      }, 3000);
       const res = await fetch(API_BASE + '/api/login', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({rut, pass})
+        body: JSON.stringify({rut, pass}),
+        signal: controller.signal
       });
+      clearTimeout(timeout);
+      clearTimeout(slowTimer);
+      document.getElementById('login-error').style.display='none';
       const data = await res.json();
       if(data.ok) user = { rut, nombre: data.nombre };
     } catch(e){
+      document.getElementById('login-error').style.display='none';
       console.warn('Error API login, intentando offline:', e);
     }
   }
