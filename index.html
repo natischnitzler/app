@@ -682,7 +682,26 @@ function sortProducts(mode){
 }
 
 // ===== LOGIN / BIENVENIDA =====
-let _sheetUsers = null; // ya no se usa (login via API)
+const SHEET_LOGINS_URL = 'https://docs.google.com/spreadsheets/d/1PNTkzNrKG3If5ONFRbBhbr8ix8y_M1zn_Aeq7KHVS9g/gviz/tq?tqx=out:csv';
+let _sheetUsers = null;
+
+async function loadSheetUsers(){
+  if(_sheetUsers) return _sheetUsers;
+  const res = await fetch(SHEET_LOGINS_URL);
+  const csv = await res.text();
+  const lines = csv.trim().split('\n').slice(1);
+  _sheetUsers = lines.map(line => {
+    const parts = line.match(/(".*?"|[^,]+)/g) || [];
+    const clean = s => (s||'').replace(/^"|"$/g,'').trim();
+    return {
+      rut: clean(parts[0]).replace(/[.\-]/g,''),
+      nombre: clean(parts[1]),
+      pass: clean(parts[2]),
+      habilitado: clean(parts[3])
+    };
+  }).filter(u => u.habilitado === '1');
+  return _sheetUsers;
+}
 
 function isLoggedIn(){ return !!sessionStorage.getItem('tn_user'); }
 function getUser(){ 
@@ -726,26 +745,13 @@ async function doLogin(){
   let user = null;
 
   if(navigator.onLine){
-    // Mostrar mensaje de espera inmediatamente
-    const errEl = document.getElementById('login-error');
-    if(errEl){ errEl.textContent='Conectando... por favor espera'; errEl.style.display='block'; errEl.style.color='#888'; }
+    // Con internet: validar directo contra Google Sheets (rápido, sin servidor)
     try {
-      // Timeout de 50s para dar tiempo a Render de despertar desde modo sleep
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 50000);
-      const res = await fetch(API_BASE + '/api/login', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({rut, pass}),
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-      if(errEl) errEl.style.display='none';
-      const data = await res.json();
-      if(data.ok) user = { rut, nombre: data.nombre };
+      const users = await loadSheetUsers();
+      const found = users.find(u => u.rut === rut && u.pass === pass);
+      if(found) user = { rut: found.rut, nombre: found.nombre };
     } catch(e){
-      if(errEl) errEl.style.display='none';
-      console.warn('Error API login, intentando offline:', e);
+      console.warn('Error Sheets login, intentando offline:', e);
     }
   }
 
@@ -760,6 +766,10 @@ async function doLogin(){
 
   if(user){
     sessionStorage.setItem('tn_user', JSON.stringify({rut: user.rut, nombre: user.nombre}));
+    // Guardar todos los usuarios en IDB para uso offline futuro
+    if(navigator.onLine){
+      loadSheetUsers().then(users => saveLoginsIDB(users)).catch(()=>{});
+    }
     document.getElementById('welcome-overlay').classList.remove('active');
     updateUserBadge();
     buildCatalogs();
