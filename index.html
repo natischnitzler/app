@@ -704,6 +704,10 @@ function enterWithoutLogin(){
 function enterWithLogin(){
   document.getElementById('login-panel').style.display='block';
   setTimeout(()=>document.getElementById('login-rut').focus(),100);
+  // Despertar servidor en background mientras el usuario escribe
+  if(navigator.onLine){
+    fetch(API_BASE + '/api/caracteristicas', {method:'GET'}).catch(()=>{});
+  }
 }
 function cancelLogin(){
   document.getElementById('login-panel').style.display='none';
@@ -722,18 +726,13 @@ async function doLogin(){
   let user = null;
 
   if(navigator.onLine){
-    // Con internet: validar en el servidor (logins frescos del Sheet)
+    // Mostrar mensaje de espera inmediatamente
+    const errEl = document.getElementById('login-error');
+    if(errEl){ errEl.textContent='Conectando... por favor espera'; errEl.style.display='block'; errEl.style.color='#888'; }
     try {
-      // Timeout de 25s para dar tiempo a Render de despertar
+      // Timeout de 50s para dar tiempo a Render de despertar desde modo sleep
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 25000);
-      const spinnerEl = document.getElementById('login-spinner');
-      // Mensaje de espera si tarda más de 3s
-      const slowTimer = setTimeout(() => {
-        if(spinnerEl) spinnerEl.title = 'Conectando al servidor...';
-        const errEl = document.getElementById('login-error');
-        if(errEl){ errEl.textContent='Conectando... por favor espera'; errEl.style.display='block'; errEl.style.color='#888'; }
-      }, 3000);
+      const timeout = setTimeout(() => controller.abort(), 50000);
       const res = await fetch(API_BASE + '/api/login', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
@@ -741,12 +740,11 @@ async function doLogin(){
         signal: controller.signal
       });
       clearTimeout(timeout);
-      clearTimeout(slowTimer);
-      document.getElementById('login-error').style.display='none';
+      if(errEl) errEl.style.display='none';
       const data = await res.json();
       if(data.ok) user = { rut, nombre: data.nombre };
     } catch(e){
-      document.getElementById('login-error').style.display='none';
+      if(errEl) errEl.style.display='none';
       console.warn('Error API login, intentando offline:', e);
     }
   }
